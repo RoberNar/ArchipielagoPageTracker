@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Archipelago Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --bg2: #161b22;
+      --bg3: #21262d;
+      --bg4: #2d333b;
+      --border: #30363d;
+      --border-active: #58a6ff;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --text-dim: #484f58;
+      --accent-blue: #58a6ff;
+      --accent-green: #3fb950;
+      --accent-orange: #d29922;
+      --accent-purple: #bc8cff;
+      --accent-red: #f85149;
+      --accent-teal: #39d353;
+      --glow-blue: rgba(88, 166, 255, 0.15);
+      --glow-green: rgba(63, 185, 80, 0.12);
+      --glow-orange: rgba(210, 153, 34, 0.12);
+      --glow-purple: rgba(188, 140, 255, 0.12);
+      --radius: 10px;
+      --radius-sm: 6px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      background: linear-gradient(135deg, #1a1f2e 0%, #161b22 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .topbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .topbar-logo svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .topbar-title {
+      font-size: 16px;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.3px;
+    }
+
+    .topbar-inputs {
+      display: flex;
+      gap: 8px;
+      flex: 1;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      padding: 8px 12px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 3px var(--glow-blue);
+    }
+
+    #input-host {
+      width: 220px;
+    }
+
+    #input-password {
+      width: 140px;
+    }
+
+    #input-slot {
+      width: 80px;
+    }
+
+    .btn {
+      padding: 8px 18px;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-blue), #4493f8);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(88, 166, 255, 0.3);
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-refresh {
+      background: linear-gradient(135deg, var(--accent-green), #2ea44f);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(63, 185, 80, 0.3);
+    }
+
+    .btn-refresh:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
+    .btn-refresh:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: auto;
+    }
+
+    .status-badge.disconnected {
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--accent-red);
+      border: 1px solid rgba(248, 81, 73, 0.3);
+    }
+
+    .status-badge.connecting {
+      background: rgba(210, 153, 34, 0.15);
+      color: var(--accent-orange);
+      border: 1px solid rgba(210, 153, 34, 0.3);
+    }
+
+    .status-badge.connected {
+      background: rgba(63, 185, 80, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(63, 185, 80, 0.3);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse-badge 2s infinite;
+    }
+
+    .status-badge.disconnected .status-dot {
+      animation: none;
+    }
+
+    @keyframes pulse-badge {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: 0.4
+      }
+    }
+
+    /* ── PLAYER TABS ── */
+    .tabs-wrapper {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      gap: 2px;
+      overflow-x: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--bg4) transparent;
+    }
+
+    .tab-btn {
+      padding: 12px 20px;
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: var(--text-muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+    }
+
+    .tab-btn.active {
+      color: var(--accent-blue);
+      border-bottom-color: var(--accent-blue);
+      background: rgba(88, 166, 255, 0.06);
+    }
+
+    .tab-btn .tab-game {
+      font-size: 10px;
+      color: var(--text-dim);
+      display: block;
+      margin-top: 1px;
+    }
+
+    .tab-btn.active .tab-game {
+      color: var(--accent-blue);
+      opacity: 0.7;
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      padding: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* Empty state */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 24px;
+      gap: 16px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .empty-state svg {
+      opacity: 0.3;
+    }
+
+    .empty-state h2 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .empty-state p {
+      font-size: 14px;
+      max-width: 400px;
+      line-height: 1.6;
+    }
+
+    /* Player panel */
+    .player-panel {
+      display: none;
+    }
+
+    .player-panel.active {
+      display: block;
+    }
+
+    .player-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .player-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .player-name-big {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+    }
+
+    .player-game-badge {
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      margin-left: 4px;
+    }
+
+    .sections-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 900px) {
+      .sections-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .card:hover {
+      border-color: var(--bg4);
+    }
+
+    .card-header {
+      padding: 14px 18px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-icon {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      flex: 1;
+    }
+
+    .card-count {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Card color themes */
+    .card-checks-done .card-header {
+      background: linear-gradient(90deg, rgba(63, 185, 80, 0.08) 0%, transparent 100%);
+    }
+
+    .card-checks-done .card-title {
+      color: var(--accent-green);
+    }
+
+    .card-checks-done .card-count {
+      background: rgba(63, 185, 80, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(63, 185, 80, 0.3);
+    }
+
+    .card-checks-done {
+      border-color: rgba(63, 185, 80, 0.2);
+    }
+
+    .card-missing .card-header {
+      background: linear-gradient(90deg, rgba(88, 166, 255, 0.08) 0%, transparent 100%);
+    }
+
+    .card-missing .card-title {
+      color: var(--accent-blue);
+    }
+
+    .card-missing .card-count {
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--accent-blue);
+      border: 1px solid rgba(88, 166, 255, 0.3);
+    }
+
+    .card-missing {
+      border-color: rgba(88, 166, 255, 0.2);
+    }
+
+    .card-hints-out .card-header {
+      background: linear-gradient(90deg, rgba(210, 153, 34, 0.08) 0%, transparent 100%);
+    }
+
+    .card-hints-out .card-title {
+      color: var(--accent-orange);
+    }
+
+    .card-hints-out .card-count {
+      background: rgba(210, 153, 34, 0.15);
+      color: var(--accent-orange);
+      border: 1px solid rgba(210, 153, 34, 0.3);
+    }
+
+    .card-hints-out {
+      border-color: rgba(210, 153, 34, 0.2);
+    }
+
+    .card-hints-in .card-header {
+      background: linear-gradient(90deg, rgba(188, 140, 255, 0.08) 0%, transparent 100%);
+    }
+
+    .card-hints-in .card-title {
+      color: var(--accent-purple);
+    }
+
+    .card-hints-in .card-count {
+      background: rgba(188, 140, 255, 0.15);
+      color: var(--accent-purple);
+      border: 1px solid rgba(188, 140, 255, 0.3);
+    }
+
+    .card-hints-in {
+      border-color: rgba(188, 140, 255, 0.2);
+    }
+
+    /* List inside cards */
+    .card-body {
+      max-height: 340px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--bg4) transparent;
+    }
+
+    .list-item {
+      padding: 9px 18px;
+      border-bottom: 1px solid rgba(48, 54, 61, 0.6);
+      font-size: 13px;
+      line-height: 1.4;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      transition: background 0.15s;
+    }
+
+    .list-item:last-child {
+      border-bottom: none;
+    }
+
+    .list-item:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .list-item-icon {
+      font-size: 12px;
+      flex-shrink: 0;
+      margin-top: 1px;
+      opacity: 0.7;
+    }
+
+    .list-item-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .list-item-name {
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .list-item-sub {
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 600;
+      vertical-align: middle;
+      margin-left: 4px;
+    }
+
+    .pill-found {
+      background: rgba(63, 185, 80, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(63, 185, 80, 0.3);
+    }
+
+    .pill-prog {
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--accent-blue);
+      border: 1px solid rgba(88, 166, 255, 0.3);
+    }
+
+    .pill-useful {
+      background: rgba(210, 153, 34, 0.15);
+      color: var(--accent-orange);
+      border: 1px solid rgba(210, 153, 34, 0.3);
+    }
+
+    .pill-trap {
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--accent-red);
+      border: 1px solid rgba(248, 81, 73, 0.3);
+    }
+
+    .empty-list {
+      padding: 28px 18px;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 13px;
+    }
+
+    /* Search bar */
+    .card-search {
+      padding: 8px 18px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .card-search input {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 12px;
+      padding: 5px 10px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Log / console */
+    #log {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #0a0d12;
+      border-top: 1px solid var(--border);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 6px 16px;
+      height: 26px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      z-index: 50;
+      transition: height 0.2s;
+    }
+
+    #log:hover {
+      height: 120px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    .log-line {
+      padding: 1px 0;
+    }
+
+    .log-ok {
+      color: var(--accent-green);
+    }
+
+    .log-err {
+      color: var(--accent-red);
+    }
+
+    .log-info {
+      color: var(--accent-blue);
+    }
+
+    .log-warn {
+      color: var(--accent-orange);
+    }
+
+    /* Spinner */
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    /* Progress bar */
+    .progress-wrap {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 6px;
+      width: 140px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-green), var(--accent-teal));
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+
+    /* tooltip */
+    [title] {
+      cursor: help;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="topbar-logo">
+      <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="14" cy="14" r="13" stroke="#58a6ff" stroke-width="1.5" />
+        <circle cx="14" cy="14" r="6" fill="#58a6ff" opacity="0.2" />
+        <circle cx="14" cy="6" r="2.5" fill="#bc8cff" />
+        <circle cx="14" cy="22" r="2.5" fill="#3fb950" />
+        <circle cx="6" cy="14" r="2.5" fill="#d29922" />
+        <circle cx="22" cy="14" r="2.5" fill="#f85149" />
+        <line x1="14" y1="8.5" x2="14" y2="11.5" stroke="#58a6ff" stroke-width="1" />
+        <line x1="14" y1="16.5" x2="14" y2="19.5" stroke="#58a6ff" stroke-width="1" />
+        <line x1="8.5" y1="14" x2="11.5" y2="14" stroke="#58a6ff" stroke-width="1" />
+        <line x1="16.5" y1="14" x2="19.5" y2="14" stroke="#58a6ff" stroke-width="1" />
+      </svg>
+      <span class="topbar-title">Archipelago Tracker</span>
+    </div>
+
+    <div class="topbar-inputs">
+      <input type="text" id="input-host" placeholder="host:port  (ej: ar.gg:38281)" value="">
+      <input type="text" id="input-slot" placeholder="Slot #" title="Slot propio (para hints)">
+      <input type="password" id="input-password" placeholder="Password (opcional)">
+    </div>
+
+    <button class="btn btn-primary" id="btn-connect" onclick="connectTracker()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+        stroke-linecap="round">
+        <path d="M5 12h14M12 5l7 7-7 7" />
+      </svg>
+      Conectar
+    </button>
+
+    <button class="btn btn-refresh" id="btn-refresh" onclick="refreshData()" disabled>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10" />
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+      </svg>
+      Actualizar
+    </button>
+
+    <div class="status-badge disconnected" id="status-badge">
+      <span class="status-dot"></span>
+      <span id="status-text">Desconectado</span>
+    </div>
+  </div>
+
+  <!-- PLAYER TABS -->
+  <div class="tabs-wrapper" id="tabs-wrapper" style="display:none"></div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main" id="main-content">
+    <div class="empty-state" id="empty-state">
+      <svg width="64" height="64" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="14" cy="14" r="13" stroke="#484f58" stroke-width="1.5" />
+        <circle cx="14" cy="6" r="2.5" fill="#484f58" />
+        <circle cx="14" cy="22" r="2.5" fill="#484f58" />
+        <circle cx="6" cy="14" r="2.5" fill="#484f58" />
+        <circle cx="22" cy="14" r="2.5" fill="#484f58" />
+      </svg>
+      <h2>Sin conexión</h2>
+      <p>Ingresá el host y puerto del servidor de Archipelago y presioná <strong>Conectar</strong> para ver los datos de
+        tu partida.</p>
+    </div>
+  </div>
+
+  <!-- LOG BAR -->
+  <div id="log">
+    <div class="log-line log-info">► Listo para conectar.</div>
+  </div>
+
+  <script>
+    'use strict';
+
+    // ── STATE ─────────────────────────────────────────────────────────────────
+    let ws = null;
+    let state = {
+      players: [],         // list of {team,slot,alias,game}
+      slotInfo: {},        // slot -> {name,game,type}
+      checkedLocs: {},     // slot -> Set<locId>
+      missingLocs: {},     // slot -> [locId]
+      dataPackage: {},     // game -> {item_name_to_id, location_name_to_id}
+      idToName: {},        // game -> {items:{id->name}, locs:{id->name}}
+      hints: {},           // slot -> [Hint]
+      receivedItems: {},   // slot -> [NetworkItem]  (items this slot received)
+      currentTab: null,
+      myTeam: 0,
+      pendingHints: new Set(),
+    };
+
+    const COLORS = ['#bc8cff', '#58a6ff', '#3fb950', '#d29922', '#f85149', '#39d353', '#ff7b72', '#ffa657'];
+
+    // ── LOGGING ───────────────────────────────────────────────────────────────
+    const logEl = document.getElementById('log');
+    function log(msg, cls = '') {
+      const d = document.createElement('div');
+      d.className = 'log-line ' + cls;
+      d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      logEl.appendChild(d);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // ── STATUS BADGE ──────────────────────────────────────────────────────────
+    function setStatus(s, msg) {
+      const badge = document.getElementById('status-badge');
+      badge.className = 'status-badge ' + s;
+      document.getElementById('status-text').textContent = msg;
+    }
+
+    // ── CONNECT ───────────────────────────────────────────────────────────────
+    function connectTracker() {
+      const rawHost = document.getElementById('input-host').value.trim();
+      if (!rawHost) { log('Ingresá el host:port antes de conectar.', 'log-err'); return; }
+
+      if (ws) { ws.close(); ws = null; }
+
+      // Reset state
+      state = {
+        players: [], slotInfo: {}, checkedLocs: {}, missingLocs: {},
+        dataPackage: {}, idToName: {}, hints: {}, receivedItems: {},
+        currentTab: null, myTeam: 0, pendingHints: new Set(),
+      };
+
+      // Auto-select wss:// when page is served over HTTPS (required by browsers for mixed-content)
+      const isSecure = location.protocol === 'https:';
+      const defaultScheme = isSecure ? 'wss://' : 'ws://';
+      const host = rawHost.includes('://') ? rawHost : defaultScheme + rawHost;
+      const pass = document.getElementById('input-password').value.trim();
+
+      setStatus('connecting', 'Conectando…');
+      log(`Conectando a ${host}…`, 'log-info');
+      document.getElementById('btn-connect').disabled = true;
+
+      try {
+        ws = new WebSocket(host);
+      } catch (e) {
+        log('Error al crear WebSocket: ' + e.message, 'log-err');
+        setStatus('disconnected', 'Desconectado');
+        document.getElementById('btn-connect').disabled = false;
+        return;
+      }
+
+      ws.onopen = () => {
+        log('WebSocket abierto — esperando RoomInfo…', 'log-ok');
+      };
+
+      ws.onclose = (e) => {
+        log(`Desconectado (code=${e.code})`, 'log-warn');
+        setStatus('disconnected', 'Desconectado');
+        document.getElementById('btn-connect').disabled = false;
+        document.getElementById('btn-refresh').disabled = true;
+      };
+
+      ws.onerror = (e) => {
+        log('Error de WebSocket. Verificá el host/puerto.', 'log-err');
+        setStatus('disconnected', 'Error de conexión');
+        document.getElementById('btn-connect').disabled = false;
+      };
+
+      ws.onmessage = (ev) => {
+        let packets;
+        try { packets = JSON.parse(ev.data); } catch { return; }
+        if (!Array.isArray(packets)) packets = [packets];
+        packets.forEach(handlePacket);
+      };
+
+      // Store pass for Connect packet
+      ws._password = pass;
+    }
+
+    // ── PACKET HANDLER ────────────────────────────────────────────────────────
+    function handlePacket(pkt) {
+      switch (pkt.cmd) {
+
+        case 'RoomInfo': {
+          log(`RoomInfo recibido. Versión ${pkt.version?.major ?? '?'}.${pkt.version?.minor ?? '?'}`, 'log-ok');
+          // Connect as Tracker (no slot needed – use "Tracker" tag + slot=0)
+          const pass = ws._password || '';
+          send({
+            cmd: 'Connect',
+            game: '',
+            name: 'Tracker',
+            password: pass,
+            version: { major: 0, minor: 5, build: 0, class: 'Version' },
+            tags: ['Tracker'],
+            uuid: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36),
+            items_handling: 0,
+            slot_data: false,
+          });
+          break;
+        }
+
+        case 'Connected': {
+          log(`Conectado. Players: ${pkt.players?.length ?? 0}`, 'log-ok');
+          setStatus('connected', `Conectado (${pkt.players?.length ?? 0} jugadores)`);
+          state.myTeam = pkt.team ?? 0;
+
+          // Build players list
+          state.players = (pkt.players || []).filter(p => p.slot > 0);
+          state.slotInfo = pkt.slot_info || {};
+
+          // checked / missing per slot provided for the connected slot (slot 0 = tracker bot)
+          // For real players we need to request via Get
+          // Store what comes for slot 0 (tracker's perspective — has ALL checked)
+          const allChecked = new Set(pkt.checked_locations || []);
+          const allMissing = pkt.missing_locations || [];
+
+          // We'll fetch per-slot checked/missing via LocationScouts approach after DataPackage
+          // For now store as "global" fallback
+          state._globalChecked = allChecked;
+          state._globalMissing = allMissing;
+
+          // Request DataPackage for all games
+          const games = [...new Set(state.players.map(p => {
+            const si = state.slotInfo[p.slot];
+            return si ? si.game : null;
+          }).filter(Boolean))];
+
+          if (games.length > 0) {
+            send({ cmd: 'GetDataPackage', games });
+            log(`Solicitando DataPackage para: ${games.join(', ')}`, 'log-info');
+          } else {
+            log('No se detectaron juegos. Solicitando DataPackage completo…', 'log-warn');
+            send({ cmd: 'GetDataPackage' });
+          }
+
+          document.getElementById('btn-refresh').disabled = false;
+          break;
+        }
+
+        case 'ConnectionRefused': {
+          const errs = (pkt.errors || []).join(', ');
+          log(`Conexión rechazada: ${errs}`, 'log-err');
+          setStatus('disconnected', 'Rechazado');
+          document.getElementById('btn-connect').disabled = false;
+          break;
+        }
+
+        case 'DataPackage': {
+          log('DataPackage recibido. Procesando…', 'log-info');
+          const games = pkt.data?.games || {};
+          for (const [game, gdata] of Object.entries(games)) {
+            state.dataPackage[game] = gdata;
+            // Build reverse maps
+            const itemsById = {};
+            for (const [n, id] of Object.entries(gdata.item_name_to_id || {})) itemsById[id] = n;
+            const locsById = {};
+            for (const [n, id] of Object.entries(gdata.location_name_to_id || {})) locsById[id] = n;
+            state.idToName[game] = { items: itemsById, locs: locsById };
+          }
+          log(`DataPackage procesado para: ${Object.keys(games).join(', ')}`, 'log-ok');
+
+          // Now request hints and checked locs for each player slot
+          requestAllPlayerData();
+          break;
+        }
+
+        case 'Retrieved': {
+          // Handle hint responses and client_status responses
+          if (!pkt.keys) break;
+          for (const [key, val] of Object.entries(pkt.keys)) {
+            const hintMatch = key.match(/^_read_hints_(\d+)_(\d+)$/);
+            if (hintMatch) {
+              const slot = parseInt(hintMatch[2]);
+              state.hints[slot] = val || [];
+              state.pendingHints.delete(slot);
+              log(`Hints para slot ${slot}: ${state.hints[slot].length}`, 'log-ok');
+            }
+            const statusMatch = key.match(/^_read_client_status_(\d+)_(\d+)$/);
+            if (statusMatch) {
+              const slot = parseInt(statusMatch[2]);
+              if (!state.slotInfo[slot]) state.slotInfo[slot] = {};
+              state.slotInfo[slot].clientStatus = val;
+            }
+            const checkedMatch = key.match(/^_read_slot_checked_(\d+)_(\d+)$/);
+            if (checkedMatch) {
+              // fallback placeholder (not a real AP key, handled differently)
+            }
+          }
+
+          // When all hints are fetched, render
+          if (state.pendingHints.size === 0 && state.players.length > 0) {
+            renderAll();
+          }
+          break;
+        }
+
+        case 'ReceivedItems': {
+          // Track items received per slot — only useful if connected as a player
+          // In tracker mode we use this for display if available
+          if (!pkt.items) break;
+          for (const item of pkt.items) {
+            if (!state.receivedItems[item.player]) state.receivedItems[item.player] = [];
+            // This gives us what the server is sending — not per-player reliably in tracker mode
+          }
+          break;
+        }
+
+        case 'RoomUpdate': {
+          log('RoomUpdate recibido — actualizando…', 'log-info');
+          if (pkt.checked_locations) {
+            for (const id of pkt.checked_locations) state._globalChecked.add(id);
+          }
+          if (state.players.length > 0) {
+            requestAllPlayerData();
+          }
+          break;
+        }
+
+        case 'PrintJSON': {
+          // Ignore chat for now
+          break;
+        }
+      }
+    }
+
+    // ── SEND HELPER ───────────────────────────────────────────────────────────
+    function send(pkt) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify([pkt]));
+      }
+    }
+
+    // ── REQUEST DATA FOR ALL PLAYERS ──────────────────────────────────────────
+    function requestAllPlayerData() {
+      if (!state.players.length) return;
+
+      state.pendingHints = new Set();
+      const keys = [];
+
+      for (const p of state.players) {
+        state.pendingHints.add(p.slot);
+        keys.push(`_read_hints_${state.myTeam}_${p.slot}`);
+        keys.push(`_read_client_status_${state.myTeam}_${p.slot}`);
+      }
+
+      send({ cmd: 'Get', keys });
+      log(`Solicitando hints y estados para ${state.players.length} jugadores…`, 'log-info');
+    }
+
+    // ── REFRESH ───────────────────────────────────────────────────────────────
+    function refreshData() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        connectTracker();
+        return;
+      }
+      log('Actualizando datos…', 'log-info');
+      state.hints = {};
+      state.pendingHints = new Set();
+      requestAllPlayerData();
+    }
+
+    // ── RENDER ────────────────────────────────────────────────────────────────
+    function renderAll() {
+      log(`Renderizando ${state.players.length} jugadores…`, 'log-info');
+
+      const tabsWrapper = document.getElementById('tabs-wrapper');
+      const mainContent = document.getElementById('main-content');
+
+      tabsWrapper.style.display = 'flex';
+      tabsWrapper.innerHTML = '';
+      mainContent.innerHTML = '';
+
+      if (!state.players.length) {
+        mainContent.innerHTML = '<div class="empty-state"><h2>Sin jugadores</h2><p>No se encontraron slots de jugadores en el servidor.</p></div>';
+        return;
+      }
+
+      // Sort players by slot
+      const players = [...state.players].sort((a, b) => a.slot - b.slot);
+
+      players.forEach((p, i) => {
+        const slotInfo = state.slotInfo[p.slot] || {};
+        const name = slotInfo.name || p.alias || `Jugador ${p.slot}`;
+        const game = slotInfo.game || '?';
+        const color = COLORS[i % COLORS.length];
+        const initials = name.slice(0, 2).toUpperCase();
+
+        // Tab button
+        const tabBtn = document.createElement('button');
+        tabBtn.className = 'tab-btn' + (i === 0 ? ' active' : '');
+        tabBtn.id = `tab-btn-${p.slot}`;
+        tabBtn.innerHTML = `${name}<span class="tab-game">${game}</span>`;
+        tabBtn.onclick = () => switchTab(p.slot);
+        tabsWrapper.appendChild(tabBtn);
+
+        // Build panel
+        const panel = document.createElement('div');
+        panel.className = 'player-panel' + (i === 0 ? ' active' : '');
+        panel.id = `panel-${p.slot}`;
+
+        panel.innerHTML = buildPlayerPanel(p, name, game, color, initials);
+        mainContent.appendChild(panel);
+      });
+
+      if (players.length > 0) state.currentTab = players[0].slot;
+      log('✓ Renderizado completo.', 'log-ok');
+    }
+
+    function switchTab(slot) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.player-panel').forEach(p => p.classList.remove('active'));
+      const btn = document.getElementById(`tab-btn-${slot}`);
+      const panel = document.getElementById(`panel-${slot}`);
+      if (btn) btn.classList.add('active');
+      if (panel) panel.classList.add('active');
+      state.currentTab = slot;
+    }
+
+    // ── BUILD PLAYER PANEL ────────────────────────────────────────────────────
+    function buildPlayerPanel(player, name, game, color, initials) {
+      const slot = player.slot;
+      const slotInfo = state.slotInfo[slot] || {};
+      const gdata = state.idToName[game] || { items: {}, locs: {} };
+
+      // All checked location IDs (global)
+      const globalChecked = state._globalChecked || new Set();
+
+      // Determine which locations belong to this slot
+      // In AP, each slot owns a set of location IDs defined in the DataPackage.
+      // The DataPackage gives us name->id; we need ids belonging to THIS game.
+      const gamePkg = state.dataPackage[game] || {};
+      const allGameLocIds = new Set(Object.values(gamePkg.location_name_to_id || {}));
+
+      // checked = intersection of globalChecked and this game's loc ids
+      const checkedIds = [...globalChecked].filter(id => allGameLocIds.has(id));
+      // missing = game's loc ids not in globalChecked
+      const missingIds = [...allGameLocIds].filter(id => !globalChecked.has(id));
+
+      const checkedCount = checkedIds.length;
+      const totalCount = allGameLocIds.size;
+      const progress = totalCount ? Math.round(checkedCount / totalCount * 100) : 0;
+
+      // Hints for this slot
+      const allHints = state.hints[slot] || [];
+      // Hints where I am the FINDER (cosas que YO puedo sacar, o ya saqué)
+      const hintsOut = allHints.filter(h => h.finding_player === slot);
+      // Hints where I am the RECEIVER and not yet found
+      const hintsIn = allHints.filter(h => h.receiving_player === slot && !h.found);
+
+      // Render sections
+      const checksHTML = renderCheckedList(checkedIds, gdata, game);
+      const missingHTML = renderMissingList(missingIds, gdata, game);
+      const hintsOutHTML = renderHintsOut(hintsOut, gdata, game, slot);
+      const hintsInHTML = renderHintsIn(hintsIn, gdata, game, slot);
+
+      return `
+  <div class="player-header">
+    <div class="player-avatar" style="background: ${color}22; border: 2px solid ${color}; color: ${color};">
+      ${initials}
+    </div>
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="player-name-big" style="color:${color}">${escHtml(name)}</span>
+        <span class="player-game-badge">${escHtml(game)}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:4px;">
+        <span style="font-size:12px;color:#8b949e;">
+          Slot <strong style="color:#e6edf3">${slot}</strong> — 
+          <strong style="color:#e6edf3">${checkedCount}</strong>/<strong style="color:#e6edf3">${totalCount}</strong> checks (${progress}%)
+        </span>
+        <div class="progress-wrap" style="width:120px">
+          <div class="progress-bar" style="width:${progress}%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sections-grid">
+
+    <div class="card card-checks-done">
+      <div class="card-header">
+        <span class="card-icon">✅</span>
+        <span class="card-title">Checks Obtenidos</span>
+        <span class="card-count">${checkedCount}</span>
+      </div>
+      <div class="card-search">
+        <input type="text" placeholder="Buscar…" oninput="filterList(this,'list-checks-${slot}')">
+      </div>
+      <div class="card-body" id="list-checks-${slot}">
+        ${checksHTML}
+      </div>
+    </div>
+
+    <div class="card card-missing">
+      <div class="card-header">
+        <span class="card-icon">📬</span>
+        <span class="card-title">Checks Pendientes</span>
+        <span class="card-count">${missingIds.length}</span>
+      </div>
+      <div class="card-search">
+        <input type="text" placeholder="Buscar…" oninput="filterList(this,'list-missing-${slot}')">
+      </div>
+      <div class="card-body" id="list-missing-${slot}">
+        ${missingHTML}
+      </div>
+    </div>
+
+    <div class="card card-hints-out">
+      <div class="card-header">
+        <span class="card-icon">🗺️</span>
+        <span class="card-title">Hints — Yo puedo sacar</span>
+        <span class="card-count">${hintsOut.length}</span>
+      </div>
+      <div class="card-search">
+        <input type="text" placeholder="Buscar…" oninput="filterList(this,'list-hints-out-${slot}')">
+      </div>
+      <div class="card-body" id="list-hints-out-${slot}">
+        ${hintsOutHTML}
+      </div>
+    </div>
+
+    <div class="card card-hints-in">
+      <div class="card-header">
+        <span class="card-icon">📦</span>
+        <span class="card-title">Hints — Otros me dan</span>
+        <span class="card-count">${hintsIn.length}</span>
+      </div>
+      <div class="card-search">
+        <input type="text" placeholder="Buscar…" oninput="filterList(this,'list-hints-in-${slot}')">
+      </div>
+      <div class="card-body" id="list-hints-in-${slot}">
+        ${hintsInHTML}
+      </div>
+    </div>
+
+  </div>
+  `;
+    }
+
+    // ── LIST RENDERERS ────────────────────────────────────────────────────────
+
+    function getLocName(id, gdata) {
+      return gdata.locs[id] || `Loc #${id}`;
+    }
+
+    function getItemName(id, game) {
+      const gd = state.idToName[game] || { items: {} };
+      return gd.items[id] || `Item #${id}`;
+    }
+
+    function getPlayerName(slot) {
+      const si = state.slotInfo[slot];
+      if (si) return si.name || `Slot ${slot}`;
+      const p = state.players.find(x => x.slot === slot);
+      return p ? (p.alias || `Slot ${slot}`) : `Slot ${slot}`;
+    }
+
+    function itemFlagPills(flags) {
+      const pills = [];
+      if (flags & 0b001) pills.push('<span class="pill pill-prog">Progresión</span>');
+      if (flags & 0b010) pills.push('<span class="pill pill-useful">Útil</span>');
+      if (flags & 0b100) pills.push('<span class="pill pill-trap">Trampa</span>');
+      return pills.join('');
+    }
+
+    function renderCheckedList(ids, gdata, game) {
+      if (!ids.length) return '<div class="empty-list">Sin checks aún.</div>';
+      return ids.map(id => {
+        const locName = getLocName(id, gdata);
+        return `<div class="list-item">
+      <span class="list-item-icon">✔</span>
+      <div class="list-item-main">
+        <div class="list-item-name">${escHtml(locName)}</div>
+      </div>
+    </div>`;
+      }).join('');
+    }
+
+    function renderMissingList(ids, gdata, game) {
+      if (!ids.length) return '<div class="empty-list">¡Todo completado! 🎉</div>';
+      return ids.map(id => {
+        const locName = getLocName(id, gdata);
+        return `<div class="list-item">
+      <span class="list-item-icon">○</span>
+      <div class="list-item-main">
+        <div class="list-item-name">${escHtml(locName)}</div>
+      </div>
+    </div>`;
+      }).join('');
+    }
+
+    function renderHintsOut(hints, gdata, game, mySlot) {
+      if (!hints.length) return '<div class="empty-list">Sin hints donde sos el finder.</div>';
+      return hints.map(h => {
+        const locName = getLocName(h.location, gdata);
+        const itemName = resolveItemName(h.item, h.receiving_player);
+        const receiver = getPlayerName(h.receiving_player);
+        const foundPill = h.found ? '<span class="pill pill-found">✓ Encontrado</span>' : '';
+        const flags = itemFlagPills(h.item_flags || 0);
+        const entrance = h.entrance ? `<div class="list-item-sub">Entrada: ${escHtml(h.entrance)}</div>` : '';
+        return `<div class="list-item">
+      <span class="list-item-icon">🗺</span>
+      <div class="list-item-main">
+        <div class="list-item-name">${escHtml(locName)} ${foundPill} ${flags}</div>
+        <div class="list-item-sub">→ <strong>${escHtml(itemName)}</strong> para <strong>${escHtml(receiver)}</strong></div>
+        ${entrance}
+      </div>
+    </div>`;
+      }).join('');
+    }
+
+    function renderHintsIn(hints, gdata, game, mySlot) {
+      if (!hints.length) return '<div class="empty-list">Sin hints pendientes de recibir.</div>';
+      return hints.map(h => {
+        const itemName = resolveItemName(h.item, mySlot);
+        const locName = resolveLocName(h.location, h.finding_player);
+        const finder = getPlayerName(h.finding_player);
+        const flags = itemFlagPills(h.item_flags || 0);
+        const entrance = h.entrance ? `<div class="list-item-sub">Entrada: ${escHtml(h.entrance)}</div>` : '';
+        return `<div class="list-item">
+      <span class="list-item-icon">📦</span>
+      <div class="list-item-main">
+        <div class="list-item-name">${escHtml(itemName)} ${flags}</div>
+        <div class="list-item-sub">En <strong>${escHtml(locName)}</strong> — lo saca <strong>${escHtml(finder)}</strong></div>
+        ${entrance}
+      </div>
+    </div>`;
+      }).join('');
+    }
+
+    // Resolve item/loc names cross-game
+    function resolveItemName(itemId, ownerSlot) {
+      const game = (state.slotInfo[ownerSlot] || {}).game;
+      if (game && state.idToName[game]) return state.idToName[game].items[itemId] || `Item #${itemId}`;
+      // Fallback: search all games
+      for (const g of Object.values(state.idToName)) { if (g.items[itemId]) return g.items[itemId]; }
+      return `Item #${itemId}`;
+    }
+
+    function resolveLocName(locId, finderSlot) {
+      const game = (state.slotInfo[finderSlot] || {}).game;
+      if (game && state.idToName[game]) return state.idToName[game].locs[locId] || `Loc #${locId}`;
+      for (const g of Object.values(state.idToName)) { if (g.locs[locId]) return g.locs[locId]; }
+      return `Loc #${locId}`;
+    }
+
+    // ── SEARCH / FILTER ───────────────────────────────────────────────────────
+    function filterList(input, listId) {
+      const q = input.value.toLowerCase();
+      const list = document.getElementById(listId);
+      if (!list) return;
+      for (const item of list.querySelectorAll('.list-item')) {
+        item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
+      }
+    }
+
+    // ── UTILS ─────────────────────────────────────────────────────────────────
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Allow pressing Enter on inputs
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (
+        document.activeElement === document.getElementById('input-host') ||
+        document.activeElement === document.getElementById('input-password') ||
+        document.activeElement === document.getElementById('input-slot')
+      )) {
+        connectTracker();
+      }
+    });
+  </script>
+</body>
+
+</html>
