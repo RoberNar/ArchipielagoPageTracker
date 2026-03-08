@@ -48,6 +48,13 @@
       overflow-x: hidden;
     }
 
+    /* ── STICKY HEADER (topbar + tabs together) ── */
+    .sticky-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
     /* ── TOP BAR ── */
     .topbar {
       background: linear-gradient(135deg, #1a1f2e 0%, #161b22 100%);
@@ -57,9 +64,6 @@
       align-items: center;
       gap: 16px;
       flex-wrap: wrap;
-      position: sticky;
-      top: 0;
-      z-index: 100;
       backdrop-filter: blur(12px);
     }
 
@@ -674,65 +678,112 @@
       transition: width 0.4s ease;
     }
 
-    /* tooltip */
-    [title] {
+    /* ── CARD TOOLTIP ── */
+    .card-tip {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--bg4);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
       cursor: help;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+      border: 1px solid var(--border);
+      line-height: 1;
+    }
+
+    .card-tip::after {
+      content: attr(data-tip);
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      background: #0d1520;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 400;
+      padding: 10px 14px;
+      border-radius: 8px;
+      width: 260px;
+      line-height: 1.55;
+      white-space: normal;
+      text-transform: none;
+      letter-spacing: 0;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+      z-index: 200;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .card-tip:hover::after {
+      opacity: 1;
     }
   </style>
 </head>
 
 <body>
 
-  <!-- TOP BAR -->
-  <div class="topbar">
-    <div class="topbar-logo">
-      <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="14" cy="14" r="13" stroke="#58a6ff" stroke-width="1.5" />
-        <circle cx="14" cy="14" r="6" fill="#58a6ff" opacity="0.2" />
-        <circle cx="14" cy="6" r="2.5" fill="#bc8cff" />
-        <circle cx="14" cy="22" r="2.5" fill="#3fb950" />
-        <circle cx="6" cy="14" r="2.5" fill="#d29922" />
-        <circle cx="22" cy="14" r="2.5" fill="#f85149" />
-        <line x1="14" y1="8.5" x2="14" y2="11.5" stroke="#58a6ff" stroke-width="1" />
-        <line x1="14" y1="16.5" x2="14" y2="19.5" stroke="#58a6ff" stroke-width="1" />
-        <line x1="8.5" y1="14" x2="11.5" y2="14" stroke="#58a6ff" stroke-width="1" />
-        <line x1="16.5" y1="14" x2="19.5" y2="14" stroke="#58a6ff" stroke-width="1" />
-      </svg>
-      <span class="topbar-title">Archipelago Tracker</span>
+  <!-- STICKY HEADER: topbar + tabs always visible -->
+  <div class="sticky-header">
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <div class="topbar-logo">
+        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="14" cy="14" r="13" stroke="#58a6ff" stroke-width="1.5" />
+          <circle cx="14" cy="14" r="6" fill="#58a6ff" opacity="0.2" />
+          <circle cx="14" cy="6" r="2.5" fill="#bc8cff" />
+          <circle cx="14" cy="22" r="2.5" fill="#3fb950" />
+          <circle cx="6" cy="14" r="2.5" fill="#d29922" />
+          <circle cx="22" cy="14" r="2.5" fill="#f85149" />
+          <line x1="14" y1="8.5" x2="14" y2="11.5" stroke="#58a6ff" stroke-width="1" />
+          <line x1="14" y1="16.5" x2="14" y2="19.5" stroke="#58a6ff" stroke-width="1" />
+          <line x1="8.5" y1="14" x2="11.5" y2="14" stroke="#58a6ff" stroke-width="1" />
+          <line x1="16.5" y1="14" x2="19.5" y2="14" stroke="#58a6ff" stroke-width="1" />
+        </svg>
+        <span class="topbar-title">Archipelago Tracker</span>
+      </div>
+
+      <div class="topbar-inputs">
+        <input type="text" id="input-host" placeholder="host:port  (ej: ar.gg:38281)" value="">
+        <input type="text" id="input-slot" placeholder="Tu nombre de slot"
+          title="Tu nombre de jugador en el multiworld (ej: Jugador1)">
+        <input type="password" id="input-password" placeholder="Password (opcional)">
+      </div>
+
+      <button class="btn btn-primary" id="btn-connect" onclick="connectTracker()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round">
+          <path d="M5 12h14M12 5l7 7-7 7" />
+        </svg>
+        Conectar
+      </button>
+
+      <button class="btn btn-refresh" id="btn-refresh" onclick="refreshData()" disabled>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10" />
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+        </svg>
+        Actualizar
+      </button>
+
+      <div class="status-badge disconnected" id="status-badge">
+        <span class="status-dot"></span>
+        <span id="status-text">Desconectado</span>
+      </div>
     </div>
 
-    <div class="topbar-inputs">
-      <input type="text" id="input-host" placeholder="host:port  (ej: ar.gg:38281)" value="">
-      <input type="text" id="input-slot" placeholder="Tu nombre de slot"
-        title="Tu nombre de jugador en el multiworld (ej: Jugador1)">
-      <input type="password" id="input-password" placeholder="Password (opcional)">
-    </div>
+    <!-- PLAYER TABS -->
+    <div class="tabs-wrapper" id="tabs-wrapper" style="display:none"></div>
 
-    <button class="btn btn-primary" id="btn-connect" onclick="connectTracker()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-        stroke-linecap="round">
-        <path d="M5 12h14M12 5l7 7-7 7" />
-      </svg>
-      Conectar
-    </button>
-
-    <button class="btn btn-refresh" id="btn-refresh" onclick="refreshData()" disabled>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-        stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="23 4 23 10 17 10" />
-        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-      </svg>
-      Actualizar
-    </button>
-
-    <div class="status-badge disconnected" id="status-badge">
-      <span class="status-dot"></span>
-      <span id="status-text">Desconectado</span>
-    </div>
-  </div>
-
-  <!-- PLAYER TABS -->
-  <div class="tabs-wrapper" id="tabs-wrapper" style="display:none"></div>
+  </div><!-- end .sticky-header -->
 
   <!-- MAIN CONTENT -->
   <div class="main" id="main-content">
@@ -881,21 +932,17 @@
           log(`Conectado. Players: ${pkt.players?.length ?? 0}`, 'log-ok');
           setStatus('connected', `Conectado (${pkt.players?.length ?? 0} jugadores)`);
           state.myTeam = pkt.team ?? 0;
+          state.mySlot = pkt.slot ?? 0;   // Connected player's own slot number
 
           // Build players list
           state.players = (pkt.players || []).filter(p => p.slot > 0);
           state.slotInfo = pkt.slot_info || {};
 
-          // checked / missing per slot provided for the connected slot (slot 0 = tracker bot)
-          // For real players we need to request via Get
-          // Store what comes for slot 0 (tracker's perspective — has ALL checked)
-          const allChecked = new Set(pkt.checked_locations || []);
-          const allMissing = pkt.missing_locations || [];
-
-          // We'll fetch per-slot checked/missing via LocationScouts approach after DataPackage
-          // For now store as "global" fallback
-          state._globalChecked = allChecked;
-          state._globalMissing = allMissing;
+          // checked_locations = ALL globally checked location IDs across every game
+          // missing_locations  = only the CONNECTED player's remaining unchecked locs
+          state._globalChecked = new Set((pkt.checked_locations || []).map(Number));
+          // Store connected player's missing locs for accurate per-slot display
+          state._myMissingLocs = new Set((pkt.missing_locations || []).map(Number));
 
           // Request DataPackage for all games
           const games = [...new Set(state.players.map(p => {
@@ -1106,19 +1153,26 @@
       const slotInfo = state.slotInfo[slot] || {};
       const gdata = state.idToName[game] || { items: {}, locs: {} };
 
-      // All checked location IDs (global)
+      // All checked location IDs (global — all games)
       const globalChecked = state._globalChecked || new Set();
 
-      // Determine which locations belong to this slot
-      // In AP, each slot owns a set of location IDs defined in the DataPackage.
-      // The DataPackage gives us name->id; we need ids belonging to THIS game.
+      // DataPackage location IDs for this game (numeric)
       const gamePkg = state.dataPackage[game] || {};
-      const allGameLocIds = new Set(Object.values(gamePkg.location_name_to_id || {}));
+      const allGameLocIds = new Set(Object.values(gamePkg.location_name_to_id || {}).map(Number));
 
-      // checked = intersection of globalChecked and this game's loc ids
-      const checkedIds = [...globalChecked].filter(id => allGameLocIds.has(id));
-      // missing = game's loc ids not in globalChecked
-      const missingIds = [...allGameLocIds].filter(id => !globalChecked.has(id));
+      let checkedIds, missingIds;
+      if (slot === state.mySlot && state._myMissingLocs) {
+        // For the CONNECTED player: use precise missing_locations from Connected packet
+        // (missing_locations is guaranteed to be this slot's own remaining locations)
+        const myMissing = state._myMissingLocs;
+        missingIds = [...allGameLocIds].filter(id => myMissing.has(id));
+        checkedIds = [...allGameLocIds].filter(id => !myMissing.has(id));
+      } else {
+        // For OTHER players: approximate using globally checked locs filtered by game IDs
+        // (works because AP games use distinct ID ranges in practice)
+        checkedIds = [...allGameLocIds].filter(id => globalChecked.has(id));
+        missingIds = [...allGameLocIds].filter(id => !globalChecked.has(id));
+      }
 
       const checkedCount = checkedIds.length;
       const totalCount = allGameLocIds.size;
@@ -1126,9 +1180,9 @@
 
       // Hints for this slot
       const allHints = state.hints[slot] || [];
-      // Hints where I am the FINDER (cosas que YO puedo sacar, o ya saqué)
-      const hintsOut = allHints.filter(h => h.finding_player === slot);
-      // Hints where I am the RECEIVER and not yet found
+      // Hints where I am the FINDER and item NOT yet found (cosas que yo tengo que sacar)
+      const hintsOut = allHints.filter(h => h.finding_player === slot && !h.found);
+      // Hints where I am the RECEIVER and item NOT yet found
       const hintsIn = allHints.filter(h => h.receiving_player === slot && !h.found);
 
       // Render sections
@@ -1166,6 +1220,7 @@
         <span class="card-icon">✅</span>
         <span class="card-title">Checks Obtenidos</span>
         <span class="card-count">${checkedCount}</span>
+        <span class="card-tip" data-tip="Locations que este jugador ya visitó y chequeó. Cada check envía un ítem al mundo de otro jugador.">?</span>
       </div>
       <div class="card-search">
         <input type="text" placeholder="Buscar…" oninput="filterList(this,'list-checks-${slot}')">
@@ -1180,6 +1235,7 @@
         <span class="card-icon">📬</span>
         <span class="card-title">Checks Pendientes</span>
         <span class="card-count">${missingIds.length}</span>
+        <span class="card-tip" data-tip="Locations que este jugador todavía no chequeó. Cada una tiene un ítem que debería enviarle a alguien.">?</span>
       </div>
       <div class="card-search">
         <input type="text" placeholder="Buscar…" oninput="filterList(this,'list-missing-${slot}')">
@@ -1194,6 +1250,7 @@
         <span class="card-icon">🗺️</span>
         <span class="card-title">Hints — Yo puedo sacar</span>
         <span class="card-count">${hintsOut.length}</span>
+        <span class="card-tip" data-tip="Ítems hintados que están escondidos en el mundo de ESTE jugador y algún otro los necesita. Estos son los que este jugador tiene que buscar y sacar.">?</span>
       </div>
       <div class="card-search">
         <input type="text" placeholder="Buscar…" oninput="filterList(this,'list-hints-out-${slot}')">
@@ -1208,6 +1265,7 @@
         <span class="card-icon">📦</span>
         <span class="card-title">Hints — Otros me dan</span>
         <span class="card-count">${hintsIn.length}</span>
+        <span class="card-tip" data-tip="Ítems hintados que ESTE jugador necesita y están en el mundo de otro. Otro jugador tiene que encontrarlos y enviárselos.">?</span>
       </div>
       <div class="card-search">
         <input type="text" placeholder="Buscar…" oninput="filterList(this,'list-hints-in-${slot}')">
