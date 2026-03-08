@@ -703,7 +703,8 @@
 
     <div class="topbar-inputs">
       <input type="text" id="input-host" placeholder="host:port  (ej: ar.gg:38281)" value="">
-      <input type="text" id="input-slot" placeholder="Slot #" title="Slot propio (para hints)">
+      <input type="text" id="input-slot" placeholder="Tu nombre de slot"
+        title="Tu nombre de jugador en el multiworld (ej: Jugador1)">
       <input type="password" id="input-password" placeholder="Password (opcional)">
     </div>
 
@@ -861,10 +862,11 @@
           log(`RoomInfo recibido. Versión ${pkt.version?.major ?? '?'}.${pkt.version?.minor ?? '?'}`, 'log-ok');
           // Connect as Tracker (no slot needed – use "Tracker" tag + slot=0)
           const pass = ws._password || '';
+          const slotName = document.getElementById('input-slot').value.trim() || 'Tracker';
           send({
             cmd: 'Connect',
             game: '',
-            name: 'Tracker',
+            name: slotName,
             password: pass,
             version: { major: 0, minor: 5, build: 0, class: 'Version' },
             tags: ['Tracker'],
@@ -918,6 +920,12 @@
           log(`Conexión rechazada: ${errs}`, 'log-err');
           setStatus('disconnected', 'Rechazado');
           document.getElementById('btn-connect').disabled = false;
+          if (errs.includes('InvalidSlot')) {
+            log('⚠ Verificá que el nombre de slot sea exactamente igual al que aparece en el multiworld (case-sensitive).', 'log-warn');
+          }
+          if (errs.includes('InvalidGame')) {
+            log('⚠ Intentando reconectar sin especificar juego — probá escribir tu nombre de slot exacto.', 'log-warn');
+          }
           break;
         }
 
