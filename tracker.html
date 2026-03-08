@@ -175,6 +175,23 @@
       transform: none;
     }
 
+    .btn-fetch-checks {
+      background: linear-gradient(135deg, var(--accent-orange), #b8800f);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(210, 153, 34, 0.3);
+    }
+
+    .btn-fetch-checks:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
+    .btn-fetch-checks:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
     .status-badge {
       display: flex;
       align-items: center;
@@ -819,13 +836,19 @@
         Conectar
       </button>
 
-      <button class="btn btn-refresh" id="btn-refresh" onclick="refreshData()" disabled>
+      <button class="btn btn-refresh" id="btn-refresh" onclick="refreshData()" disabled
+        title="Recarga hints para todos los jugadores (1 sola conexión)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
           stroke-linecap="round" stroke-linejoin="round">
           <polyline points="23 4 23 10 17 10" />
           <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
         </svg>
         Actualizar
+      </button>
+
+      <button class="btn btn-fetch-checks" id="btn-fetch-checks" onclick="refreshChecks()" disabled
+        title="Conecta brevemente como cada jugador para obtener sus checks exactos. Solo hacé esto cuando sea necesario.">
+        🔄 Actualizar Checks
       </button>
 
       <div class="status-badge disconnected" id="status-badge">
@@ -1039,6 +1062,7 @@
           }
 
           document.getElementById('btn-refresh').disabled = false;
+          document.getElementById('btn-fetch-checks').disabled = false;
           break;
         }
 
@@ -1098,10 +1122,12 @@
             }
           }
 
-          // When all hints are fetched, kick off per-player location fetch
-          if (state.pendingHints.size === 0 && state.players.length > 0 && !_pendingPlayerFetches) {
-            _pendingPlayerFetches = true;
-            fetchAllPlayersSequentially();
+          // When all hints are fetched, render using cached checks (no extra WS connections)
+          if (state.pendingHints.size === 0 && state.players.length > 0) {
+            _pendingPlayerFetches = false;
+            loadChecksFromCacheIfAvailable();
+            renderAll();
+            log('✓ Hints cargados. Usá "🔄 Actualizar Checks" para obtener checks exactos de otros jugadores.', 'log-info');
           }
           break;
         }
@@ -1160,13 +1186,10 @@
       log(`Solicitando hints y estados para ${state.players.length} jugadores…`, 'log-info');
     }
 
-    // ── REFRESH ───────────────────────────────────────────────────────────────
+    // ── REFRESH (hints only — 1 WS connection) ──────────────────────────────────
     function refreshData() {
-      // Always do a full re-fetch: hints + per-player locs
-      log('Actualizando todos los datos…', 'log-info');
+      log('Actualizando hints… (checks sin cambios)', 'log-info');
       state.hints = {};
-      state._playerMissingLocs = {};
-      state._myMissingLocs = null;
       state.pendingHints = new Set();
       _pendingPlayerFetches = false;
       if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -1174,6 +1197,39 @@
       } else {
         requestAllPlayerData();
       }
+    }
+
+    // ── REFRESH CHECKS (sequential player connections) ──────────────────────
+    // Only called explicitly by user. Makes N brief WS connections (one per other player).
+    // This is visible in the Archipelago server console as brief connect/disconnect events.
+    function refreshChecks() {
+      if (!state.serverUrl) { log('Conectáte primero.', 'log-warn'); return; }
+      state._playerMissingLocs = {};
+      state._myMissingLocs = null;
+      _pendingPlayerFetches = false;
+      log('🔄 Iniciando actualización de checks (conectando como cada jugador)…', 'log-info');
+      fetchAllPlayersSequentially();
+    }
+
+    // Load other players' checks from localStorage without making new connections
+    function loadChecksFromCacheIfAvailable() {
+      try {
+        const key = getCacheKey();
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const d = JSON.parse(raw);
+        // Only use cached player locs—own slot data comes from live connection
+        for (const [slotStr, missing] of Object.entries(d.playerMissingLocs || {})) {
+          const slot = Number(slotStr);
+          if (slot !== state.mySlot) {
+            state._playerMissingLocs[slot] = new Set((missing || []).map(Number));
+          }
+        }
+        if (Object.keys(state._playerMissingLocs).length > 0) {
+          const ageMin = Math.round((Date.now() - d.savedAt) / 60000);
+          log(`📦 Checks de otros jugadores cargados desde caché (${ageMin} min atrás). Usá "🔄 Actualizar Checks" para refrescarlos.`, 'log-ok');
+        }
+      } catch (_) { }
     }
 
     // ── FETCH OTHER PLAYERS SEQUENTIALLY ─────────────────────────────────────
