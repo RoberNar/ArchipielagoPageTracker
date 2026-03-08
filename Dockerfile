@@ -3,7 +3,8 @@ FROM nginx:alpine
 # Copy the tracker HTML to nginx's web root
 COPY tracker.html /usr/share/nginx/html/index.html
 
-# Copy custom nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy nginx template config (uses ${PORT} placeholder)
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
+# Railway injects $PORT; nginx docker image will envsubst templates automatically
 EXPOSE 80
