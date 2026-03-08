@@ -678,7 +678,61 @@
       transition: width 0.4s ease;
     }
 
-    /* ── CARD TOOLTIP ── */
+    /* ── FETCH PROGRESS BANNER ── */
+    .fetch-banner {
+      background: linear-gradient(90deg, rgba(88, 166, 255, 0.12), rgba(188, 140, 255, 0.08));
+      border-bottom: 1px solid rgba(88, 166, 255, 0.3);
+      padding: 8px 24px;
+      font-size: 12px;
+      color: var(--accent-blue);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .fetch-banner.hidden {
+      display: none;
+    }
+
+    .fetch-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      animation: pulse-badge 1.2s infinite;
+      flex-shrink: 0;
+    }
+
+    .cache-bar {
+      background: rgba(63, 185, 80, 0.08);
+      border-bottom: 1px solid rgba(63, 185, 80, 0.25);
+      padding: 7px 24px;
+      font-size: 12px;
+      color: var(--accent-green);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .cache-bar.hidden {
+      display: none;
+    }
+
+    .cache-bar button {
+      background: rgba(63, 185, 80, 0.15);
+      border: 1px solid rgba(63, 185, 80, 0.4);
+      color: var(--accent-green);
+      border-radius: 4px;
+      padding: 2px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .cache-bar button:hover {
+      background: rgba(63, 185, 80, 0.25);
+    }
+
     .card-tip {
       width: 18px;
       height: 18px;
@@ -785,6 +839,20 @@
 
   </div><!-- end .sticky-header -->
 
+  <!-- FETCH PROGRESS BANNER -->
+  <div class="fetch-banner hidden" id="fetch-banner">
+    <span class="fetch-dot"></span>
+    <span id="fetch-banner-text">Obteniendo datos de jugadores…</span>
+  </div>
+
+  <!-- CACHE RESTORE BAR -->
+  <div class="cache-bar hidden" id="cache-bar">
+    💾 <span id="cache-bar-text"></span>
+    <button onclick="restoreFromCache()">Restaurar</button>
+    <button onclick="document.getElementById('cache-bar').classList.add('hidden')"
+      style="background:rgba(248,81,73,0.1);border-color:rgba(248,81,73,0.3);color:var(--accent-red)">Ignorar</button>
+  </div>
+
   <!-- MAIN CONTENT -->
   <div class="main" id="main-content">
     <div class="empty-state" id="empty-state">
@@ -812,18 +880,25 @@
     // ── STATE ─────────────────────────────────────────────────────────────────
     let ws = null;
     let state = {
-      players: [],         // list of {team,slot,alias,game}
-      slotInfo: {},        // slot -> {name,game,type}
-      checkedLocs: {},     // slot -> Set<locId>
-      missingLocs: {},     // slot -> [locId]
-      dataPackage: {},     // game -> {item_name_to_id, location_name_to_id}
-      idToName: {},        // game -> {items:{id->name}, locs:{id->name}}
-      hints: {},           // slot -> [Hint]
-      receivedItems: {},   // slot -> [NetworkItem]  (items this slot received)
+      players: [],
+      slotInfo: {},
+      dataPackage: {},
+      idToName: {},
+      hints: {},
       currentTab: null,
       myTeam: 0,
+      mySlot: 0,
       pendingHints: new Set(),
+      // Connection info (for re-connecting as other players)
+      serverUrl: '',
+      password: '',
+      // Per-slot missing location IDs (fetched by connecting as each player)
+      _playerMissingLocs: {},   // slot -> Set<locId>
+      // Own player data from Connected packet
+      _myMissingLocs: null,
+      _globalChecked: new Set(),
     };
+    let _pendingPlayerFetches = false; // guard against double-fetch
 
     const COLORS = ['#bc8cff', '#58a6ff', '#3fb950', '#d29922', '#f85149', '#39d353', '#ff7b72', '#ffa657'];
 
@@ -851,18 +926,23 @@
 
       if (ws) { ws.close(); ws = null; }
 
-      // Reset state
-      state = {
-        players: [], slotInfo: {}, checkedLocs: {}, missingLocs: {},
-        dataPackage: {}, idToName: {}, hints: {}, receivedItems: {},
-        currentTab: null, myTeam: 0, pendingHints: new Set(),
-      };
-
-      // Auto-select wss:// when page is served over HTTPS (required by browsers for mixed-content)
+      // Reset state (keep serverUrl/password for re-use)
       const isSecure = location.protocol === 'https:';
       const defaultScheme = isSecure ? 'wss://' : 'ws://';
       const host = rawHost.includes('://') ? rawHost : defaultScheme + rawHost;
       const pass = document.getElementById('input-password').value.trim();
+
+      state = {
+        players: [], slotInfo: {}, dataPackage: {}, idToName: {},
+        hints: {}, currentTab: null, myTeam: 0, mySlot: 0,
+        pendingHints: new Set(),
+        serverUrl: host,    // store for later player connections
+        password: pass,
+        _playerMissingLocs: {},
+        _myMissingLocs: null,
+        _globalChecked: new Set(),
+      };
+      _pendingPlayerFetches = false;
 
       setStatus('connecting', 'Conectando…');
       log(`Conectando a ${host}…`, 'log-info');
@@ -1018,9 +1098,10 @@
             }
           }
 
-          // When all hints are fetched, render
-          if (state.pendingHints.size === 0 && state.players.length > 0) {
-            renderAll();
+          // When all hints are fetched, kick off per-player location fetch
+          if (state.pendingHints.size === 0 && state.players.length > 0 && !_pendingPlayerFetches) {
+            _pendingPlayerFetches = true;
+            fetchAllPlayersSequentially();
           }
           break;
         }
@@ -1037,11 +1118,12 @@
         }
 
         case 'RoomUpdate': {
-          log('RoomUpdate recibido — actualizando…', 'log-info');
-          if (pkt.checked_locations) {
-            for (const id of pkt.checked_locations) state._globalChecked.add(id);
-          }
+          log('RoomUpdate recibido — re-consultando hints…', 'log-info');
+          // Don't auto re-fetch player locs on every room update (expensive)
           if (state.players.length > 0) {
+            state.hints = {};
+            state.pendingHints = new Set();
+            _pendingPlayerFetches = false;
             requestAllPlayerData();
           }
           break;
@@ -1080,14 +1162,182 @@
 
     // ── REFRESH ───────────────────────────────────────────────────────────────
     function refreshData() {
+      // Always do a full re-fetch: hints + per-player locs
+      log('Actualizando todos los datos…', 'log-info');
+      state.hints = {};
+      state._playerMissingLocs = {};
+      state._myMissingLocs = null;
+      state.pendingHints = new Set();
+      _pendingPlayerFetches = false;
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         connectTracker();
-        return;
+      } else {
+        requestAllPlayerData();
       }
-      log('Actualizando datos…', 'log-info');
-      state.hints = {};
-      state.pendingHints = new Set();
-      requestAllPlayerData();
+    }
+
+    // ── FETCH OTHER PLAYERS SEQUENTIALLY ─────────────────────────────────────
+    // Connect briefly as each player to get their missing_locations precisely.
+    // Each connection: open WS → RoomInfo → Connect as player → get Connected → close.
+    // Costs: ~1-2 KB per player. Railway serves static HTML only;
+    // these WS connections go browser → Archipelago server directly (0 Railway cost).
+    async function fetchAllPlayersSequentially() {
+      const others = state.players.filter(p => p.slot !== state.mySlot);
+      if (!others.length) { renderAll(); saveToLocalStorage(); return; }
+
+      const banner = document.getElementById('fetch-banner');
+      const bannerText = document.getElementById('fetch-banner-text');
+      banner.classList.remove('hidden');
+
+      for (let i = 0; i < others.length; i++) {
+        const p = others[i];
+        const si = state.slotInfo[p.slot] || {};
+        const name = si.name || p.alias;
+        if (!name) continue;
+        bannerText.textContent = `Cargando datos de ${name} (${i + 1}/${others.length})…`;
+        await fetchPlayerMissingLocs(name, p.slot);
+      }
+
+      banner.classList.add('hidden');
+      saveToLocalStorage();
+      renderAll();
+      log('✓ Datos de todos los jugadores listos.', 'log-ok');
+    }
+
+    function fetchPlayerMissingLocs(slotName, slot) {
+      return new Promise((resolve) => {
+        const TIMEOUT = 10000;
+        let timer = null;
+        let done = false;
+        const finish = () => { if (!done) { done = true; clearTimeout(timer); resolve(); } };
+
+        let tw;
+        try { tw = new WebSocket(state.serverUrl); } catch (e) { return resolve(); }
+
+        timer = setTimeout(() => {
+          log(`⚠ Timeout conectando como ${slotName}`, 'log-warn');
+          try { tw.close(); } catch (_) { }
+          finish();
+        }, TIMEOUT);
+
+        tw.onmessage = (ev) => {
+          try {
+            const pkts = JSON.parse(ev.data);
+            for (const pkt of (Array.isArray(pkts) ? pkts : [pkts])) {
+              if (pkt.cmd === 'RoomInfo') {
+                tw.send(JSON.stringify([{
+                  cmd: 'Connect',
+                  game: '', name: slotName,
+                  password: state.password,
+                  version: { major: 0, minor: 5, build: 0, class: 'Version' },
+                  tags: ['Tracker'],
+                  uuid: Math.random().toString(36).slice(2),
+                  items_handling: 0, slot_data: false,
+                }]));
+              }
+              if (pkt.cmd === 'Connected') {
+                state._playerMissingLocs[slot] = new Set((pkt.missing_locations || []).map(Number));
+                log(`✓ Locs de ${slotName}: ${pkt.missing_locations?.length ?? 0} pendientes`, 'log-ok');
+                try { tw.close(); } catch (_) { }
+                finish();
+              }
+              if (pkt.cmd === 'ConnectionRefused') {
+                const errs = (pkt.errors || []).join(', ');
+                log(`⚠ No se pudo conectar como ${slotName}: ${errs}`, 'log-warn');
+                try { tw.close(); } catch (_) { }
+                finish();
+              }
+            }
+          } catch (_) { }
+        };
+        tw.onerror = finish;
+        tw.onclose = finish;
+      });
+    }
+
+    // ── LOCAL STORAGE CACHE ───────────────────────────────────────────────────
+    function getCacheKey() {
+      return 'ap-tracker::' + state.serverUrl;
+    }
+
+    function saveToLocalStorage() {
+      try {
+        const data = {
+          savedAt: Date.now(),
+          serverUrl: state.serverUrl,
+          mySlot: state.mySlot,
+          myTeam: state.myTeam,
+          players: state.players,
+          slotInfo: state.slotInfo,
+          hints: state.hints,
+          dataPackage: state.dataPackage,
+          idToName: state.idToName,
+          myMissingLocs: state._myMissingLocs ? [...state._myMissingLocs] : [],
+          playerMissingLocs: Object.fromEntries(
+            Object.entries(state._playerMissingLocs).map(([k, v]) => [k, [...v]])
+          ),
+        };
+        localStorage.setItem(getCacheKey(), JSON.stringify(data));
+        log('💾 Datos guardados en caché local.', 'log-ok');
+      } catch (e) {
+        log('⚠ No se pudo guardar en caché: ' + e.message, 'log-warn');
+      }
+    }
+
+    function restoreFromCache() {
+      const rawHost = document.getElementById('input-host').value.trim();
+      if (!rawHost) { log('Ingresá el host para restaurar caché.', 'log-warn'); return; }
+      const isSecure = location.protocol === 'https:';
+      const host = rawHost.includes('://') ? rawHost : (isSecure ? 'wss://' : 'ws://') + rawHost;
+      const key = 'ap-tracker::' + host;
+
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) { log('Sin caché para ese servidor.', 'log-warn'); return; }
+        const d = JSON.parse(raw);
+
+        state.serverUrl = d.serverUrl;
+        state.mySlot = d.mySlot;
+        state.myTeam = d.myTeam;
+        state.players = d.players;
+        state.slotInfo = d.slotInfo;
+        state.hints = d.hints;
+        state.dataPackage = d.dataPackage;
+        state.idToName = d.idToName;
+        state._myMissingLocs = new Set((d.myMissingLocs || []).map(Number));
+        state._playerMissingLocs = {};
+        state._globalChecked = new Set();
+        state.password = document.getElementById('input-password').value.trim();
+        for (const [slot, missing] of Object.entries(d.playerMissingLocs || {})) {
+          state._playerMissingLocs[Number(slot)] = new Set((missing || []).map(Number));
+        }
+
+        document.getElementById('cache-bar').classList.add('hidden');
+        document.getElementById('btn-refresh').disabled = false;
+        setStatus('connected', `Caché (${d.players.length} jugadores)`);
+        renderAll();
+        log(`📦 Restaurado desde caché (guardado ${new Date(d.savedAt).toLocaleTimeString()}).`, 'log-ok');
+      } catch (e) {
+        log('Error restaurando caché: ' + e.message, 'log-err');
+      }
+    }
+
+    function checkForCachedData() {
+      const rawHost = document.getElementById('input-host').value.trim();
+      if (!rawHost) return;
+      const isSecure = location.protocol === 'https:';
+      const host = rawHost.includes('://') ? rawHost : (isSecure ? 'wss://' : 'ws://') + rawHost;
+      const key = 'ap-tracker::' + host;
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const d = JSON.parse(raw);
+        const ageMin = Math.round((Date.now() - d.savedAt) / 60000);
+        const bar = document.getElementById('cache-bar');
+        document.getElementById('cache-bar-text').textContent =
+          `Hay datos guardados de esta sala (${ageMin} min atrás, ${d.players.length} jugadores).`;
+        bar.classList.remove('hidden');
+      } catch (_) { }
     }
 
     // ── RENDER ────────────────────────────────────────────────────────────────
@@ -1162,16 +1412,19 @@
 
       let checkedIds, missingIds;
       if (slot === state.mySlot && state._myMissingLocs) {
-        // For the CONNECTED player: use precise missing_locations from Connected packet
-        // (missing_locations is guaranteed to be this slot's own remaining locations)
+        // Connected player: precise data from Connected packet
         const myMissing = state._myMissingLocs;
         missingIds = [...allGameLocIds].filter(id => myMissing.has(id));
         checkedIds = [...allGameLocIds].filter(id => !myMissing.has(id));
+      } else if (state._playerMissingLocs[slot]) {
+        // Other player: fetched via sequential connection
+        const theirMissing = state._playerMissingLocs[slot];
+        missingIds = [...allGameLocIds].filter(id => theirMissing.has(id));
+        checkedIds = [...allGameLocIds].filter(id => !theirMissing.has(id));
       } else {
-        // For OTHER players: approximate using globally checked locs filtered by game IDs
-        // (works because AP games use distinct ID ranges in practice)
-        checkedIds = [...allGameLocIds].filter(id => globalChecked.has(id));
-        missingIds = [...allGameLocIds].filter(id => !globalChecked.has(id));
+        // No data yet — show total as missing, 0 checked
+        checkedIds = [];
+        missingIds = [...allGameLocIds];
       }
 
       const checkedCount = checkedIds.length;
@@ -1414,6 +1667,15 @@
       )) {
         connectTracker();
       }
+    });
+
+    // Check for cached data when host input changes
+    document.getElementById('input-host').addEventListener('blur', checkForCachedData);
+
+    // On page load: try to surface cached data if host was previously typed
+    // (browser may auto-fill from history)
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(checkForCachedData, 300);
     });
   </script>
 </body>
