@@ -846,6 +846,11 @@
         Actualizar
       </button>
 
+      <button class="btn btn-fetch-checks" id="btn-fetch-checks" onclick="refreshChecks()" disabled
+        title="Descarga el porcentaje exacto conectando brevemente a todos. Cuidado: Genera mensajes de conexión en el chat del juego.">
+        🔄 Forzar Sincronización
+      </button>
+
       <div class="status-badge disconnected" id="status-badge">
         <span class="status-dot"></span>
         <span id="status-text">Desconectado</span>
@@ -1054,6 +1059,7 @@
           }
 
           document.getElementById('btn-refresh').disabled = false;
+          document.getElementById('btn-fetch-checks').disabled = false;
           break;
         }
 
@@ -1117,7 +1123,7 @@
           if (state.pendingHints.size === 0 && state.players.length > 0) {
             _pendingPlayerFetches = false;
             renderAll();
-            log('✓ Datos y Hints cargados de forma exitosa.', 'log-info');
+            log('✓ Datos y Hints cargados de forma exitosa. Usa "Forzar Sincronización" para traer checks pasados.', 'log-info');
           }
           break;
         }
@@ -1222,6 +1228,88 @@
       }
     }
 
+
+
+    // ── REFRESH CHECKS (sequential player connections) ──────────────────────
+    function refreshChecks() {
+      if (!state.serverUrl) { log('Conéctate primero.', 'log-warn'); return; }
+      state._playerMissingLocs = {};
+      state._myMissingLocs = null;
+      _pendingPlayerFetches = false;
+      log('🔄 Iniciando descarga de checks (conectando brevemente como cada jugador)…', 'log-info');
+      fetchAllPlayersSequentially();
+    }
+
+    async function fetchAllPlayersSequentially() {
+      const others = state.players.filter(p => p.slot !== state.mySlot);
+      if (!others.length) { renderAll(); return; }
+
+      const banner = document.getElementById('fetch-banner');
+      const bannerText = document.getElementById('fetch-banner-text');
+      banner.classList.remove('hidden');
+
+      for (let i = 0; i < others.length; i++) {
+        const p = others[i];
+        const si = state.slotInfo[p.slot] || {};
+        const name = si.name || p.alias;
+        if (!name) continue;
+        bannerText.textContent = `Descargando checks de ${name} (${i + 1}/${others.length})…`;
+        await fetchPlayerMissingLocs(name, p.slot);
+      }
+
+      banner.classList.add('hidden');
+      renderAll();
+      log('✓ Historial de checks obtenido para todos los jugadores.', 'log-ok');
+    }
+
+    function fetchPlayerMissingLocs(slotName, slot) {
+      return new Promise((resolve) => {
+        const TIMEOUT = 10000;
+        let timer = null;
+        let done = false;
+        const finish = () => { if (!done) { done = true; clearTimeout(timer); resolve(); } };
+
+        let tw;
+        try { tw = new WebSocket(state.serverUrl); } catch (e) { return resolve(); }
+
+        timer = setTimeout(() => {
+          log(`⚠ Timeout conectando como ${slotName}`, 'log-warn');
+          try { tw.close(); } catch (_) { }
+          finish();
+        }, TIMEOUT);
+
+        tw.onmessage = (ev) => {
+          try {
+            const pkts = JSON.parse(ev.data);
+            for (const pkt of (Array.isArray(pkts) ? pkts : [pkts])) {
+              if (pkt.cmd === 'RoomInfo') {
+                tw.send(JSON.stringify([{
+                  cmd: 'Connect',
+                  game: '', name: slotName,
+                  password: state.password,
+                  version: { major: 0, minor: 5, build: 0, class: 'Version' },
+                  tags: ['Tracker', 'Monitor'],
+                  uuid: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36),
+                  items_handling: 0, slot_data: false,
+                }]));
+              }
+              if (pkt.cmd === 'Connected') {
+                state._playerMissingLocs[slot] = new Set((pkt.missing_locations || []).map(Number));
+                state._playerCheckedLocs[slot] = new Set((pkt.checked_locations || []).map(Number));
+                try { tw.close(); } catch (_) { }
+                finish();
+              }
+              if (pkt.cmd === 'ConnectionRefused') {
+                try { tw.close(); } catch (_) { }
+                finish();
+              }
+            }
+          } catch (_) { }
+        };
+        tw.onerror = finish;
+        tw.onclose = finish;
+      });
+    }
 
 
     // ── RENDER ────────────────────────────────────────────────────────────────
