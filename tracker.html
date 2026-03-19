@@ -863,14 +863,6 @@
     <span id="fetch-banner-text">Obteniendo datos de jugadores…</span>
   </div>
 
-  <!-- CACHE RESTORE BAR -->
-  <div class="cache-bar hidden" id="cache-bar">
-    💾 <span id="cache-bar-text"></span>
-    <button onclick="restoreFromCache()">Restaurar</button>
-    <button onclick="document.getElementById('cache-bar').classList.add('hidden')"
-      style="background:rgba(248,81,73,0.1);border-color:rgba(248,81,73,0.3);color:var(--accent-red)">Ignorar</button>
-  </div>
-
   <!-- MAIN CONTENT -->
   <div class="main" id="main-content">
     <div class="empty-state" id="empty-state">
@@ -1015,14 +1007,14 @@
           log(`RoomInfo recibido. Versión ${pkt.version?.major ?? '?'}.${pkt.version?.minor ?? '?'}`, 'log-ok');
           // Connect as Tracker (no slot needed – use "Tracker" tag + slot=0)
           const pass = ws._password || '';
-          const slotName = document.getElementById('input-slot').value.trim() || 'Monitor';
+          const slotName = document.getElementById('input-slot').value.trim() || 'Tracker';
           send({
             cmd: 'Connect',
             game: '',
             name: slotName,
             password: pass,
             version: { major: 0, minor: 5, build: 0, class: 'Version' },
-            tags: ['Monitor'],
+            tags: ['Tracker', 'Monitor'],
             uuid: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36),
             items_handling: 0,
             slot_data: false,
@@ -1230,99 +1222,7 @@
       }
     }
 
-    // ── LOCAL STORAGE CACHE ───────────────────────────────────────────────────
-    function getCacheKey() {
-      return 'ap-tracker::' + state.serverUrl;
-    }
 
-    function saveToLocalStorage() {
-      try {
-        const data = {
-          savedAt: Date.now(),
-          serverUrl: state.serverUrl,
-          mySlot: state.mySlot,
-          myTeam: state.myTeam,
-          players: state.players,
-          slotInfo: state.slotInfo,
-          hints: state.hints,
-          dataPackage: state.dataPackage,
-          idToName: state.idToName,
-          myMissingLocs: state._myMissingLocs ? [...state._myMissingLocs] : [],
-          myCheckedLocs: state._myCheckedLocs ? [...state._myCheckedLocs] : [],
-          playerMissingLocs: Object.fromEntries(
-            Object.entries(state._playerMissingLocs).map(([k, v]) => [k, [...v]])
-          ),
-          playerCheckedLocs: Object.fromEntries(
-            Object.entries(state._playerCheckedLocs).map(([k, v]) => [k, [...v]])
-          ),
-        };
-        localStorage.setItem(getCacheKey(), JSON.stringify(data));
-        log('💾 Datos guardados en caché local.', 'log-ok');
-      } catch (e) {
-        log('⚠ No se pudo guardar en caché: ' + e.message, 'log-warn');
-      }
-    }
-
-    function restoreFromCache() {
-      const rawHost = document.getElementById('input-host').value.trim();
-      if (!rawHost) { log('Ingresá el host para restaurar caché.', 'log-warn'); return; }
-      const isSecure = location.protocol === 'https:';
-      const host = rawHost.includes('://') ? rawHost : (isSecure ? 'wss://' : 'ws://') + rawHost;
-      const key = 'ap-tracker::' + host;
-
-      try {
-        const raw = localStorage.getItem(key);
-        if (!raw) { log('Sin caché para ese servidor.', 'log-warn'); return; }
-        const d = JSON.parse(raw);
-
-        state.serverUrl = d.serverUrl;
-        state.mySlot = d.mySlot;
-        state.myTeam = d.myTeam;
-        state.players = d.players;
-        state.slotInfo = d.slotInfo;
-        state.hints = d.hints;
-        state.dataPackage = d.dataPackage;
-        state.idToName = d.idToName;
-        state._myMissingLocs = new Set((d.myMissingLocs || []).map(Number));
-        state._myCheckedLocs = new Set((d.myCheckedLocs || []).map(Number));
-        state._playerMissingLocs = {};
-        state._playerCheckedLocs = {};
-        state._globalChecked = new Set();
-        state.password = document.getElementById('input-password').value.trim();
-        for (const [slot, missing] of Object.entries(d.playerMissingLocs || {})) {
-          state._playerMissingLocs[Number(slot)] = new Set((missing || []).map(Number));
-        }
-        for (const [slot, checked] of Object.entries(d.playerCheckedLocs || {})) {
-          state._playerCheckedLocs[Number(slot)] = new Set((checked || []).map(Number));
-        }
-
-        document.getElementById('cache-bar').classList.add('hidden');
-        document.getElementById('btn-refresh').disabled = false;
-        setStatus('connected', `Caché (${d.players.length} jugadores)`);
-        renderAll();
-        log(`📦 Restaurado desde caché (guardado ${new Date(d.savedAt).toLocaleTimeString()}).`, 'log-ok');
-      } catch (e) {
-        log('Error restaurando caché: ' + e.message, 'log-err');
-      }
-    }
-
-    function checkForCachedData() {
-      const rawHost = document.getElementById('input-host').value.trim();
-      if (!rawHost) return;
-      const isSecure = location.protocol === 'https:';
-      const host = rawHost.includes('://') ? rawHost : (isSecure ? 'wss://' : 'ws://') + rawHost;
-      const key = 'ap-tracker::' + host;
-      try {
-        const raw = localStorage.getItem(key);
-        if (!raw) return;
-        const d = JSON.parse(raw);
-        const ageMin = Math.round((Date.now() - d.savedAt) / 60000);
-        const bar = document.getElementById('cache-bar');
-        document.getElementById('cache-bar-text').textContent =
-          `Hay datos guardados de esta sala (${ageMin} min atrás, ${d.players.length} jugadores).`;
-        bar.classList.remove('hidden');
-      } catch (_) { }
-    }
 
     // ── RENDER ────────────────────────────────────────────────────────────────
     function renderAll() {
@@ -1442,13 +1342,47 @@
       </div>
       <div style="display:flex;align-items:center;gap:12px;margin-top:4px;">
         <span style="font-size:12px;color:#8b949e;">
-          Slot <strong style="color:#e6edf3">${slot}</strong>
+          Slot <strong style="color:#e6edf3">${slot}</strong> — 
+          <strong style="color:#e6edf3">${checkedCount}</strong>/<strong style="color:#e6edf3">${totalCount}</strong> checks (${progress}%)
         </span>
+        <div class="progress-wrap" style="width:120px">
+          <div class="progress-bar" style="width:${progress}%"></div>
+        </div>
       </div>
     </div>
   </div>
 
   <div class="sections-grid">
+
+    <div class="card card-checks-done">
+      <div class="card-header">
+        <span class="card-icon">✅</span>
+        <span class="card-title">Checks Obtenidos</span>
+        <span class="card-count">${checkedCount}</span>
+        <span class="card-tip" data-tip="Locations que este jugador ya visitó y chequeó. Cada check envía un ítem al mundo de otro jugador.">?</span>
+      </div>
+      <div class="card-search">
+        <input type="text" placeholder="Buscar…" oninput="filterList(this,'list-checks-${slot}')">
+      </div>
+      <div class="card-body" id="list-checks-${slot}">
+        ${checksHTML}
+      </div>
+    </div>
+
+    <div class="card card-missing">
+      <div class="card-header">
+        <span class="card-icon">📬</span>
+        <span class="card-title">Checks Pendientes</span>
+        <span class="card-count">${missingIds.length}</span>
+        <span class="card-tip" data-tip="Locations que este jugador todavía no chequeó. Cada una tiene un ítem que debería enviarle a alguien.">?</span>
+      </div>
+      <div class="card-search">
+        <input type="text" placeholder="Buscar…" oninput="filterList(this,'list-missing-${slot}')">
+      </div>
+      <div class="card-body" id="list-missing-${slot}">
+        ${missingHTML}
+      </div>
+    </div>
 
     <div class="card card-hints-out">
       <div class="card-header">
@@ -1621,14 +1555,7 @@
       }
     });
 
-    // Check for cached data when host input changes
-    document.getElementById('input-host').addEventListener('blur', checkForCachedData);
 
-    // On page load: try to surface cached data if host was previously typed
-    // (browser may auto-fill from history)
-    window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(checkForCachedData, 300);
-    });
   </script>
 </body>
 
