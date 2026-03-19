@@ -846,11 +846,6 @@
         Actualizar
       </button>
 
-      <button class="btn btn-fetch-checks" id="btn-fetch-checks" onclick="refreshChecks()" disabled
-        title="Conecta brevemente como cada jugador para obtener sus checks exactos. Solo hacé esto cuando sea necesario.">
-        🔄 Actualizar Checks
-      </button>
-
       <div class="status-badge disconnected" id="status-badge">
         <span class="status-dot"></span>
         <span id="status-text">Desconectado</span>
@@ -1067,7 +1062,6 @@
           }
 
           document.getElementById('btn-refresh').disabled = false;
-          document.getElementById('btn-fetch-checks').disabled = false;
           break;
         }
 
@@ -1127,12 +1121,11 @@
             }
           }
 
-          // When all hints are fetched, render using cached checks (no extra WS connections)
+          // When all hints are fetched, render
           if (state.pendingHints.size === 0 && state.players.length > 0) {
             _pendingPlayerFetches = false;
-            loadChecksFromCacheIfAvailable();
             renderAll();
-            log('✓ Hints cargados. Usá "🔄 Actualizar Checks" para obtener checks exactos de otros jugadores.', 'log-info');
+            log('✓ Datos y Hints cargados de forma exitosa.', 'log-info');
           }
           break;
         }
@@ -1235,122 +1228,6 @@
       } else {
         requestAllPlayerData();
       }
-    }
-
-    // ── REFRESH CHECKS (sequential player connections) ──────────────────────
-    // Only called explicitly by user. Makes N brief WS connections (one per other player).
-    // This is visible in the Archipelago server console as brief connect/disconnect events.
-    function refreshChecks() {
-      if (!state.serverUrl) { log('Conectáte primero.', 'log-warn'); return; }
-      state._playerMissingLocs = {};
-      state._myMissingLocs = null;
-      _pendingPlayerFetches = false;
-      log('🔄 Iniciando actualización de checks (conectando como cada jugador)…', 'log-info');
-      fetchAllPlayersSequentially();
-    }
-
-    // Load other players' checks from localStorage without making new connections
-    function loadChecksFromCacheIfAvailable() {
-      try {
-        const key = getCacheKey();
-        const raw = localStorage.getItem(key);
-        if (!raw) return;
-        const d = JSON.parse(raw);
-        // Only use cached player locs—own slot data comes from live connection
-        for (const [slotStr, missing] of Object.entries(d.playerMissingLocs || {})) {
-          const slot = Number(slotStr);
-          if (slot !== state.mySlot) {
-            state._playerMissingLocs[slot] = new Set((missing || []).map(Number));
-            if (d.playerCheckedLocs && d.playerCheckedLocs[slotStr]) {
-              state._playerCheckedLocs[slot] = new Set((d.playerCheckedLocs[slotStr] || []).map(Number));
-            }
-          }
-        }
-        if (Object.keys(state._playerMissingLocs).length > 0) {
-          const ageMin = Math.round((Date.now() - d.savedAt) / 60000);
-          log(`📦 Checks de otros jugadores cargados desde caché (${ageMin} min atrás). Usá "🔄 Actualizar Checks" para refrescarlos.`, 'log-ok');
-        }
-      } catch (_) { }
-    }
-
-    // ── FETCH OTHER PLAYERS SEQUENTIALLY ─────────────────────────────────────
-    // Connect briefly as each player to get their missing_locations precisely.
-    // Each connection: open WS → RoomInfo → Connect as player → get Connected → close.
-    // Costs: ~1-2 KB per player. Railway serves static HTML only;
-    // these WS connections go browser → Archipelago server directly (0 Railway cost).
-    async function fetchAllPlayersSequentially() {
-      const others = state.players.filter(p => p.slot !== state.mySlot);
-      if (!others.length) { renderAll(); saveToLocalStorage(); return; }
-
-      const banner = document.getElementById('fetch-banner');
-      const bannerText = document.getElementById('fetch-banner-text');
-      banner.classList.remove('hidden');
-
-      for (let i = 0; i < others.length; i++) {
-        const p = others[i];
-        const si = state.slotInfo[p.slot] || {};
-        const name = si.name || p.alias;
-        if (!name) continue;
-        bannerText.textContent = `Cargando datos de ${name} (${i + 1}/${others.length})…`;
-        await fetchPlayerMissingLocs(name, p.slot);
-      }
-
-      banner.classList.add('hidden');
-      saveToLocalStorage();
-      renderAll();
-      log('✓ Datos de todos los jugadores listos.', 'log-ok');
-    }
-
-    function fetchPlayerMissingLocs(slotName, slot) {
-      return new Promise((resolve) => {
-        const TIMEOUT = 10000;
-        let timer = null;
-        let done = false;
-        const finish = () => { if (!done) { done = true; clearTimeout(timer); resolve(); } };
-
-        let tw;
-        try { tw = new WebSocket(state.serverUrl); } catch (e) { return resolve(); }
-
-        timer = setTimeout(() => {
-          log(`⚠ Timeout conectando como ${slotName}`, 'log-warn');
-          try { tw.close(); } catch (_) { }
-          finish();
-        }, TIMEOUT);
-
-        tw.onmessage = (ev) => {
-          try {
-            const pkts = JSON.parse(ev.data);
-            for (const pkt of (Array.isArray(pkts) ? pkts : [pkts])) {
-              if (pkt.cmd === 'RoomInfo') {
-                tw.send(JSON.stringify([{
-                  cmd: 'Connect',
-                  game: '', name: slotName,
-                  password: state.password,
-                  version: { major: 0, minor: 5, build: 0, class: 'Version' },
-                  tags: ['Tracker', 'Monitor'],
-                  uuid: Math.random().toString(36).slice(2),
-                  items_handling: 0, slot_data: false,
-                }]));
-              }
-              if (pkt.cmd === 'Connected') {
-                state._playerMissingLocs[slot] = new Set((pkt.missing_locations || []).map(Number));
-                state._playerCheckedLocs[slot] = new Set((pkt.checked_locations || []).map(Number));
-                log(`✓ Locs de ${slotName}: ${pkt.missing_locations?.length ?? 0} pendientes`, 'log-ok');
-                try { tw.close(); } catch (_) { }
-                finish();
-              }
-              if (pkt.cmd === 'ConnectionRefused') {
-                const errs = (pkt.errors || []).join(', ');
-                log(`⚠ No se pudo conectar como ${slotName}: ${errs}`, 'log-warn');
-                try { tw.close(); } catch (_) { }
-                finish();
-              }
-            }
-          } catch (_) { }
-        };
-        tw.onerror = finish;
-        tw.onclose = finish;
-      });
     }
 
     // ── LOCAL STORAGE CACHE ───────────────────────────────────────────────────
@@ -1565,47 +1442,13 @@
       </div>
       <div style="display:flex;align-items:center;gap:12px;margin-top:4px;">
         <span style="font-size:12px;color:#8b949e;">
-          Slot <strong style="color:#e6edf3">${slot}</strong> — 
-          <strong style="color:#e6edf3">${checkedCount}</strong>/<strong style="color:#e6edf3">${totalCount}</strong> checks (${progress}%)
+          Slot <strong style="color:#e6edf3">${slot}</strong>
         </span>
-        <div class="progress-wrap" style="width:120px">
-          <div class="progress-bar" style="width:${progress}%"></div>
-        </div>
       </div>
     </div>
   </div>
 
   <div class="sections-grid">
-
-    <div class="card card-checks-done">
-      <div class="card-header">
-        <span class="card-icon">✅</span>
-        <span class="card-title">Checks Obtenidos</span>
-        <span class="card-count">${checkedCount}</span>
-        <span class="card-tip" data-tip="Locations que este jugador ya visitó y chequeó. Cada check envía un ítem al mundo de otro jugador.">?</span>
-      </div>
-      <div class="card-search">
-        <input type="text" placeholder="Buscar…" oninput="filterList(this,'list-checks-${slot}')">
-      </div>
-      <div class="card-body" id="list-checks-${slot}">
-        ${checksHTML}
-      </div>
-    </div>
-
-    <div class="card card-missing">
-      <div class="card-header">
-        <span class="card-icon">📬</span>
-        <span class="card-title">Checks Pendientes</span>
-        <span class="card-count">${missingIds.length}</span>
-        <span class="card-tip" data-tip="Locations que este jugador todavía no chequeó. Cada una tiene un ítem que debería enviarle a alguien.">?</span>
-      </div>
-      <div class="card-search">
-        <input type="text" placeholder="Buscar…" oninput="filterList(this,'list-missing-${slot}')">
-      </div>
-      <div class="card-body" id="list-missing-${slot}">
-        ${missingHTML}
-      </div>
-    </div>
 
     <div class="card card-hints-out">
       <div class="card-header">
