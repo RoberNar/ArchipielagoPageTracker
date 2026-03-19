@@ -1152,8 +1152,13 @@
         }
 
         case 'PrintJSON': {
-          if (pkt.type === 'ItemSend' && pkt.item && pkt.item.player && pkt.item.location) {
-            const finder = pkt.item.player;
+          if (pkt.type === 'ItemSend' && pkt.item && pkt.item.location) {
+            // Find the true finder by parsing the text nodes because item.player is the Receiver
+            let finder = pkt.receiving || pkt.item.player; // fallback
+            if (pkt.data && Array.isArray(pkt.data)) {
+              const pNode = pkt.data.find(d => d.type === 'player_id');
+              if (pNode && pNode.text) finder = parseInt(pNode.text);
+            }
             const loc = pkt.item.location;
             let changed = false;
 
@@ -1382,19 +1387,24 @@
       const gamePkg = state.dataPackage[game] || {};
       const allGameLocIds = new Set(Object.values(gamePkg.location_name_to_id || {}).map(Number));
 
-      let checkedIds, missingIds;
+      let checkedIds = [];
+      let missingIds = [];
+      let totalCount = allGameLocIds.size;
+
       if (slot === state.mySlot && state._myMissingLocs && state._myCheckedLocs) {
         // Connected player: precise data from Connected packet
         const myMissing = state._myMissingLocs;
         const myChecked = state._myCheckedLocs;
         missingIds = [...myMissing].filter(id => allGameLocIds.has(id));
         checkedIds = [...myChecked].filter(id => allGameLocIds.has(id));
+        totalCount = missingIds.length + checkedIds.length;
       } else if (state._playerMissingLocs[slot]) {
         // Other player: fetched via sequential connection
         const theirMissing = state._playerMissingLocs[slot];
         const theirChecked = state._playerCheckedLocs[slot] || new Set();
         missingIds = [...theirMissing].filter(id => allGameLocIds.has(id));
         checkedIds = [...theirChecked].filter(id => allGameLocIds.has(id));
+        totalCount = missingIds.length + checkedIds.length;
       } else {
         // No data yet — show total as missing, 0 checked
         checkedIds = [];
@@ -1402,7 +1412,6 @@
       }
 
       const checkedCount = checkedIds.length;
-      const totalCount = allGameLocIds.size;
       const progress = totalCount ? Math.round(checkedCount / totalCount * 100) : 0;
 
       // Hints for this slot
