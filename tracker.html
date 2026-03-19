@@ -874,7 +874,7 @@
         <circle cx="22" cy="14" r="2.5" fill="#484f58" />
       </svg>
       <h2>Sin conexión</h2>
-      <p>Ingresá el host y puerto del servidor de Archipelago y presioná <strong>Conectar</strong> para ver los datos de
+      <p>Ingresa el host y puerto del servidor de Archipelago y presiona <strong>Conectar</strong> para ver los datos de
         tu partida.</p>
     </div>
   </div>
@@ -1063,10 +1063,10 @@
           setStatus('disconnected', 'Rechazado');
           document.getElementById('btn-connect').disabled = false;
           if (errs.includes('InvalidSlot')) {
-            log('⚠ Verificá que el nombre de slot sea exactamente igual al que aparece en el multiworld (case-sensitive).', 'log-warn');
+            log('⚠ Verifica que el nombre de slot sea exactamente igual al que aparece en el multiworld (case-sensitive).', 'log-warn');
           }
           if (errs.includes('InvalidGame')) {
-            log('⚠ Intentando reconectar sin especificar juego — probá escribir tu nombre de slot exacto.', 'log-warn');
+            log('⚠ Intentando reconectar sin especificar juego — prueba escribir tu nombre de slot exacto.', 'log-warn');
           }
           break;
         }
@@ -1387,9 +1387,9 @@
     <div class="card card-hints-out">
       <div class="card-header">
         <span class="card-icon">🗺️</span>
-        <span class="card-title">Hints — Yo puedo sacar</span>
+        <span class="card-title">Hints — Puedo encontrar</span>
         <span class="card-count">${hintsOut.length}</span>
-        <span class="card-tip" data-tip="Ítems hintados que están escondidos en el mundo de ESTE jugador y algún otro los necesita. Estos son los que este jugador tiene que buscar y sacar.">?</span>
+        <span class="card-tip" data-tip="Ítems hintados que están escondidos en el mundo de ESTE jugador y algún otro los necesita. Estos son los que este jugador tiene que buscar y obtener.">?</span>
       </div>
       <div class="card-search">
         <input type="text" placeholder="Buscar…" oninput="filterList(this,'list-hints-out-${slot}')">
@@ -1402,7 +1402,7 @@
     <div class="card card-hints-in">
       <div class="card-header">
         <span class="card-icon">📦</span>
-        <span class="card-title">Hints — Otros me dan</span>
+        <span class="card-title">Hints — Otros me envían</span>
         <span class="card-count">${hintsIn.length}</span>
         <span class="card-tip" data-tip="Ítems hintados que ESTE jugador necesita y están en el mundo de otro. Otro jugador tiene que encontrarlos y enviárselos.">?</span>
       </div>
@@ -1471,7 +1471,7 @@
     }
 
     function renderHintsOut(hints, gdata, game, mySlot) {
-      if (!hints.length) return '<div class="empty-list">Sin hints donde sos el finder.</div>';
+      if (!hints.length) return '<div class="empty-list">Sin hints donde eres quien encuentra.</div>';
       return hints.map(h => {
         const locName = getLocName(h.location, gdata);
         const itemName = resolveItemName(h.item, h.receiving_player);
@@ -1502,7 +1502,7 @@
       <span class="list-item-icon">📦</span>
       <div class="list-item-main">
         <div class="list-item-name">${escHtml(itemName)} ${flags}</div>
-        <div class="list-item-sub">En <strong>${escHtml(locName)}</strong> — lo saca <strong>${escHtml(finder)}</strong></div>
+        <div class="list-item-sub">En <strong>${escHtml(locName)}</strong> — lo obtiene <strong>${escHtml(finder)}</strong></div>
         ${entrance}
       </div>
     </div>`;
