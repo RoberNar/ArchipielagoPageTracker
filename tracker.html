@@ -1012,14 +1012,14 @@
           log(`RoomInfo recibido. Versión ${pkt.version?.major ?? '?'}.${pkt.version?.minor ?? '?'}`, 'log-ok');
           // Connect as Tracker (no slot needed – use "Tracker" tag + slot=0)
           const pass = ws._password || '';
-          const slotName = document.getElementById('input-slot').value.trim() || 'Tracker';
+          const slotName = document.getElementById('input-slot').value.trim() || 'NoText';
           send({
             cmd: 'Connect',
             game: '',
             name: slotName,
             password: pass,
             version: { major: 0, minor: 5, build: 0, class: 'Version' },
-            tags: ['Tracker', 'Monitor'],
+            tags: ['Tracker', 'NoText'],
             uuid: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36),
             items_handling: 0,
             slot_data: false,
