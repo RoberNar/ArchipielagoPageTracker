@@ -846,11 +846,6 @@
         Actualizar
       </button>
 
-      <button class="btn btn-fetch-checks" id="btn-fetch-checks" onclick="refreshChecks()" disabled
-        title="Descarga el porcentaje exacto conectando brevemente a todos. Cuidado: Genera mensajes de conexión en el chat del juego.">
-        🔄 Forzar Sincronización
-      </button>
-
       <div class="status-badge disconnected" id="status-badge">
         <span class="status-dot"></span>
         <span id="status-text">Desconectado</span>
@@ -916,6 +911,7 @@
       _globalChecked: new Set(),
     };
     let _pendingPlayerFetches = false; // guard against double-fetch
+    let _fetchChecksPending = false; // automate syncing after connection
 
     const COLORS = ['#bc8cff', '#58a6ff', '#3fb950', '#d29922', '#f85149', '#39d353', '#ff7b72', '#ffa657'];
 
@@ -962,6 +958,7 @@
         _globalChecked: new Set(),
       };
       _pendingPlayerFetches = false;
+      _fetchChecksPending = true;
 
       setStatus('connecting', 'Conectando…');
       log(`Conectando a ${host}…`, 'log-info');
@@ -1059,7 +1056,6 @@
           }
 
           document.getElementById('btn-refresh').disabled = false;
-          document.getElementById('btn-fetch-checks').disabled = false;
           break;
         }
 
@@ -1122,8 +1118,13 @@
           // When all hints are fetched, render
           if (state.pendingHints.size === 0 && state.players.length > 0) {
             _pendingPlayerFetches = false;
-            renderAll();
-            log('✓ Datos y Hints cargados de forma exitosa. Usa "Forzar Sincronización" para traer checks pasados.', 'log-info');
+            if (_fetchChecksPending) {
+              _fetchChecksPending = false;
+              refreshChecks();
+            } else {
+              renderAll();
+              log('✓ Datos y Hints actualizados.', 'log-info');
+            }
           }
           break;
         }
@@ -1222,10 +1223,11 @@
 
     // ── REFRESH (hints only — 1 WS connection) ──────────────────────────────────
     function refreshData() {
-      log('Actualizando hints… (checks sin cambios)', 'log-info');
+      log('Actualizando datos…', 'log-info');
       state.hints = {};
       state.pendingHints = new Set();
       _pendingPlayerFetches = false;
+      _fetchChecksPending = true;
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         connectTracker();
       } else {
