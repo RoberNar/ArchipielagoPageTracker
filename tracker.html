@@ -1241,7 +1241,6 @@
     function refreshChecks() {
       if (!state.serverUrl) { log('Conéctate primero.', 'log-warn'); return; }
       state._playerMissingLocs = {};
-      state._myMissingLocs = null;
       _pendingPlayerFetches = false;
       log('🔄 Iniciando descarga de checks (conectando brevemente como cada jugador)…', 'log-info');
       fetchAllPlayersSequentially();
