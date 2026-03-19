@@ -917,8 +917,10 @@
       password: '',
       // Per-slot missing location IDs (fetched by connecting as each player)
       _playerMissingLocs: {},   // slot -> Set<locId>
+      _playerCheckedLocs: {},
       // Own player data from Connected packet
       _myMissingLocs: null,
+      _myCheckedLocs: null,
       _globalChecked: new Set(),
     };
     let _pendingPlayerFetches = false; // guard against double-fetch
@@ -962,7 +964,9 @@
         serverUrl: host,    // store for later player connections
         password: pass,
         _playerMissingLocs: {},
+        _playerCheckedLocs: {},
         _myMissingLocs: null,
+        _myCheckedLocs: null,
         _globalChecked: new Set(),
       };
       _pendingPlayerFetches = false;
@@ -1046,6 +1050,7 @@
           state._globalChecked = new Set((pkt.checked_locations || []).map(Number));
           // Store connected player's missing locs for accurate per-slot display
           state._myMissingLocs = new Set((pkt.missing_locations || []).map(Number));
+          state._myCheckedLocs = new Set((pkt.checked_locations || []).map(Number));
 
           // Request DataPackage for all games
           const games = [...new Set(state.players.map(p => {
@@ -1156,7 +1161,40 @@
         }
 
         case 'PrintJSON': {
-          // Ignore chat for now
+          if (pkt.type === 'ItemSend' && pkt.item && pkt.item.player && pkt.item.location) {
+            const finder = pkt.item.player;
+            const loc = pkt.item.location;
+            let changed = false;
+
+            if (state._playerMissingLocs[finder] && state._playerMissingLocs[finder].has(loc)) {
+              state._playerMissingLocs[finder].delete(loc);
+              changed = true;
+            }
+            if (state._myMissingLocs && finder === state.mySlot && state._myMissingLocs.has(loc)) {
+              state._myMissingLocs.delete(loc);
+              changed = true;
+            }
+            if (state._playerCheckedLocs[finder]) {
+              state._playerCheckedLocs[finder].add(loc);
+              changed = true;
+            }
+            if (state._myCheckedLocs && finder === state.mySlot) {
+              state._myCheckedLocs.add(loc);
+              changed = true;
+            }
+
+            const allHints = state.hints[state.mySlot] || [];
+            allHints.forEach(h => {
+              if (h.location === loc && h.finding_player === finder && !h.found) {
+                h.found = true;
+                changed = true;
+              }
+            });
+
+            if (changed && _pendingPlayerFetches === false) {
+              renderAll();
+            }
+          }
           break;
         }
       }
@@ -1223,6 +1261,9 @@
           const slot = Number(slotStr);
           if (slot !== state.mySlot) {
             state._playerMissingLocs[slot] = new Set((missing || []).map(Number));
+            if (d.playerCheckedLocs && d.playerCheckedLocs[slotStr]) {
+              state._playerCheckedLocs[slot] = new Set((d.playerCheckedLocs[slotStr] || []).map(Number));
+            }
           }
         }
         if (Object.keys(state._playerMissingLocs).length > 0) {
@@ -1286,13 +1327,14 @@
                   game: '', name: slotName,
                   password: state.password,
                   version: { major: 0, minor: 5, build: 0, class: 'Version' },
-                  tags: ['Tracker'],
+                  tags: ['Tracker', 'Monitor'],
                   uuid: Math.random().toString(36).slice(2),
                   items_handling: 0, slot_data: false,
                 }]));
               }
               if (pkt.cmd === 'Connected') {
                 state._playerMissingLocs[slot] = new Set((pkt.missing_locations || []).map(Number));
+                state._playerCheckedLocs[slot] = new Set((pkt.checked_locations || []).map(Number));
                 log(`✓ Locs de ${slotName}: ${pkt.missing_locations?.length ?? 0} pendientes`, 'log-ok');
                 try { tw.close(); } catch (_) { }
                 finish();
@@ -1329,8 +1371,12 @@
           dataPackage: state.dataPackage,
           idToName: state.idToName,
           myMissingLocs: state._myMissingLocs ? [...state._myMissingLocs] : [],
+          myCheckedLocs: state._myCheckedLocs ? [...state._myCheckedLocs] : [],
           playerMissingLocs: Object.fromEntries(
             Object.entries(state._playerMissingLocs).map(([k, v]) => [k, [...v]])
+          ),
+          playerCheckedLocs: Object.fromEntries(
+            Object.entries(state._playerCheckedLocs).map(([k, v]) => [k, [...v]])
           ),
         };
         localStorage.setItem(getCacheKey(), JSON.stringify(data));
@@ -1361,11 +1407,16 @@
         state.dataPackage = d.dataPackage;
         state.idToName = d.idToName;
         state._myMissingLocs = new Set((d.myMissingLocs || []).map(Number));
+        state._myCheckedLocs = new Set((d.myCheckedLocs || []).map(Number));
         state._playerMissingLocs = {};
+        state._playerCheckedLocs = {};
         state._globalChecked = new Set();
         state.password = document.getElementById('input-password').value.trim();
         for (const [slot, missing] of Object.entries(d.playerMissingLocs || {})) {
           state._playerMissingLocs[Number(slot)] = new Set((missing || []).map(Number));
+        }
+        for (const [slot, checked] of Object.entries(d.playerCheckedLocs || {})) {
+          state._playerCheckedLocs[Number(slot)] = new Set((checked || []).map(Number));
         }
 
         document.getElementById('cache-bar').classList.add('hidden');
@@ -1467,16 +1518,18 @@
       const allGameLocIds = new Set(Object.values(gamePkg.location_name_to_id || {}).map(Number));
 
       let checkedIds, missingIds;
-      if (slot === state.mySlot && state._myMissingLocs) {
+      if (slot === state.mySlot && state._myMissingLocs && state._myCheckedLocs) {
         // Connected player: precise data from Connected packet
         const myMissing = state._myMissingLocs;
-        missingIds = [...allGameLocIds].filter(id => myMissing.has(id));
-        checkedIds = [...allGameLocIds].filter(id => !myMissing.has(id));
+        const myChecked = state._myCheckedLocs;
+        missingIds = [...myMissing].filter(id => allGameLocIds.has(id));
+        checkedIds = [...myChecked].filter(id => allGameLocIds.has(id));
       } else if (state._playerMissingLocs[slot]) {
         // Other player: fetched via sequential connection
         const theirMissing = state._playerMissingLocs[slot];
-        missingIds = [...allGameLocIds].filter(id => theirMissing.has(id));
-        checkedIds = [...allGameLocIds].filter(id => !theirMissing.has(id));
+        const theirChecked = state._playerCheckedLocs[slot] || new Set();
+        missingIds = [...theirMissing].filter(id => allGameLocIds.has(id));
+        checkedIds = [...theirChecked].filter(id => allGameLocIds.has(id));
       } else {
         // No data yet — show total as missing, 0 checked
         checkedIds = [];
